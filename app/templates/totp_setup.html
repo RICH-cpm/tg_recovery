@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Включение 2FA — TG Recovery{% endblock %}
+{% block content %}
+<div class="narrow">
+    <a href="/settings" class="back-link">← Настройки</a>
+    <h1 class="title">Двухфакторная аутентификация</h1>
+    {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+    <div class="panel"><div class="panel-title">1. Приложение</div><div class="note">Установите Google Authenticator, Authy или другое приложение с поддержкой TOTP.</div></div>
+    <div class="panel"><div class="panel-title">2. Сканирование</div><div class="qr-box"><img src="data:image/png;base64,{{ qr_base64 }}" alt="QR" class="qr-img"><div style="flex:1;min-width:200px"><span class="hint">или введите ключ вручную:</span><code class="secret">{{ secret }}</code></div></div></div>
+    <div class="panel"><div class="panel-title">3. Подтверждение</div><form method="post" action="/settings/totp/enable" class="form"><div class="field"><label for="code">Код из приложения</label><input type="text" id="code" name="code" class="mono-input" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="000000" required autofocus></div><button type="submit" class="btn btn-primary">Подтвердить и включить</button></form></div>
+</div>
+{% endblock %}

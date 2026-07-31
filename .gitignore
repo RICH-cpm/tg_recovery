@@ -1,0 +1,23 @@
+# секреты и данные
+.env
+.env.local
+data/*.db
+data/*.db-*
+data/backups/
+sessions/*.enc
+sessions/*.tmp
+*.log
+
+# python
+__pycache__/
+*.pyc
+venv/
+.venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# прочее
+.DS_Store
+.idea/
+.vscode/

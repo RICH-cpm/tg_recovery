@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>{% block title %}TG Recovery{% endblock %}</title>
+    <script>(function(){var t;try{t=localStorage.getItem('theme');}catch(e){}if(!t)t=(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light';document.documentElement.setAttribute('data-theme',t);})();</script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔐</text></svg>">
+</head>
+<body>
+    <div class="ambient" aria-hidden="true"><div class="aurora aurora-1"></div><div class="aurora aurora-2"></div><div class="aurora aurora-3"></div></div>
+
+    <svg class="lg-defs" width="0" height="0" aria-hidden="true" focusable="false"><defs>
+        <filter id="lg-glass" x="-35%" y="-35%" width="170%" height="170%" color-interpolation-filters="sRGB">
+            <feTurbulence type="fractalNoise" baseFrequency="0.009 0.011" numOctaves="2" seed="12" result="turb"/>
+            <feGaussianBlur in="turb" stdDeviation="1.4" result="soft"/>
+            <feDisplacementMap in="SourceGraphic" in2="soft" scale="13" xChannelSelector="R" yChannelSelector="G" result="disp"/>
+            <feGaussianBlur in="disp" stdDeviation="7" result="blurred"/>
+            <feColorMatrix in="blurred" type="saturate" values="1.7"/>
+        </filter>
+        <filter id="lg-glass-btn" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
+            <feTurbulence type="fractalNoise" baseFrequency="0.018 0.02" numOctaves="1" seed="7" result="turb"/>
+            <feDisplacementMap in="SourceGraphic" in2="turb" scale="7" xChannelSelector="R" yChannelSelector="G" result="disp"/>
+            <feGaussianBlur in="disp" stdDeviation="5" result="blurred"/>
+            <feColorMatrix in="blurred" type="saturate" values="1.6"/>
+        </filter>
+    </defs></svg>
+
+    {% if user %}
+    <nav class="navbar">
+        <div class="nav-inner">
+            <a href="/" class="brand"><span class="brand-mark"><span class="brand-dot"></span></span><span class="brand-text">TG Recovery</span></a>
+            <div class="nav-links">
+                <a href="/" class="nav-link" data-match="/">Аккаунты</a>
+                <a href="/settings" class="nav-link" data-match="/settings">Настройки</a>
+                <a href="/audit" class="nav-link" data-match="/audit">Журнал</a>
+                <form action="/logout" method="post" class="inline-form"><button type="submit" class="nav-link nav-exit">Выйти</button></form>
+            </div>
+        </div>
+    </nav>
+    {% endif %}
+
+    <main class="shell">{% block content %}{% endblock %}</main>
+    <footer class="footer"><span class="footer-mark"></span>TG Recovery · коды авторизации Telegram</footer>
+
+    <button class="theme-toggle" onclick="toggleTheme()" aria-label="Сменить тему" title="Сменить тему"><span class="theme-ico">🌙</span></button>
+
+    <script src="/static/js/theme.js"></script>
+    <script>(function(){var p=window.location.pathname;document.querySelectorAll('.nav-link[data-match]').forEach(function(a){var m=a.getAttribute('data-match');if(m==='/'?(p==='/'||p.indexOf('/account')===0):p.indexOf(m)===0)a.classList.add('active');});})();</script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

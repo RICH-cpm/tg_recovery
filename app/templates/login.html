@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Вход — TG Recovery{% endblock %}
+{% block content %}
+<div class="auth-wrap">
+    <div class="auth-card">
+        <div class="auth-top"><div class="auth-emblem">🔐</div><div class="auth-title">TG Recovery</div><div class="auth-note">Защищённый доступ</div></div>
+        {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+        <form method="post" action="/login" class="form">
+            <div class="field"><label for="username">Логин</label><input type="text" id="username" name="username" value="{{ username or '' }}" autocomplete="username" required autofocus></div>
+            <div class="field"><label for="password">Пароль</label><input type="password" id="password" name="password" autocomplete="current-password" required></div>
+            {% if show_totp %}<div class="field"><label for="totp_code">Код двухфакторной аутентификации</label><input type="text" id="totp_code" name="totp_code" class="mono-input" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="000000" autocomplete="one-time-code" autofocus required></div>{% else %}<input type="hidden" name="totp_code" value="">{% endif %}
+            <button type="submit" class="btn btn-primary btn-block">Войти</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

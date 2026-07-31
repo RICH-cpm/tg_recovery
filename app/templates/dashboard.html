@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Аккаунты — TG Recovery{% endblock %}
+{% block content %}
+<div class="head">
+    <div><div class="eyebrow">Обзор</div><h1 class="title">Аккаунты</h1><p class="subtitle">Коды авторизации Telegram приходят сюда автоматически.</p></div>
+    <div class="head-actions"><a href="/accounts/add" class="btn btn-primary">Добавить аккаунт</a></div>
+</div>
+{% if accounts %}
+<div class="status-strip">
+    <div class="stat"><div class="stat-num">{{ accounts|length }}</div><div class="stat-label">всего аккаунтов</div></div>
+    <div class="stat"><div class="stat-num live">{{ connected }}</div><div class="stat-label">подключено</div></div>
+    <div class="stat"><div class="stat-num">{{ unread_total }}</div><div class="stat-label">новых кодов</div></div>
+</div>
+<div class="grid">
+    {% for account in accounts %}
+    <a href="/account/{{ account.id }}" class="card">
+        <div class="card-top"><span class="card-name">{{ account.display_name }}</span><span class="pill {% if account.is_connected %}pill-on{% else %}pill-off{% endif %}">{% if account.is_connected %}подключён{% else %}не в сети{% endif %}</span></div>
+        <span class="card-phone">{{ account.phone_number }}</span>
+        <div class="card-meta">{% if account.unread_count and account.unread_count > 0 %}<span class="badge-new">{{ account.unread_count }} новых</span>{% endif %}{% if account.last_code_at %}<span>код · <span class="time-ago" data-time="{{ account.last_code_at }}">{{ account.last_code_at }}</span></span>{% else %}<span>кодов пока нет</span>{% endif %}</div>
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty"><div class="empty-badge">📱</div><h2>Пока нет аккаунтов</h2><p>Добавьте первый Telegram-аккаунт, чтобы принимать резервные коды авторизации.</p><a href="/accounts/add" class="btn btn-primary">Добавить аккаунт</a></div>
+{% endif %}
+{% endblock %}
+{% block scripts %}<script src="/static/js/time.js"></script>{% endblock %}

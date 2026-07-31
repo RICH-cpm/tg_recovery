@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}{{ account.display_name }} — TG Recovery{% endblock %}
+{% block content %}
+<div class="head">
+    <div>
+        <a href="/" class="back-link">← Аккаунты</a>
+        {% set p = account.phone_number %}
+        <div class="eyebrow phone-line">
+            <span class="phone-mask" data-full="{{ p }}" data-mask="{% if p|length > 5 %}{{ p[:2] }}{{ '•' * (p|length - 4) }}{{ p[-2:] }}{% else %}••••{% endif %}">{% if p|length > 5 %}{{ p[:2] }}{{ '•' * (p|length - 4) }}{{ p[-2:] }}{% else %}••••{% endif %}</span>
+            <button type="button" class="phone-eye" onclick="togglePhone(this)">показать</button>
+        </div>
+        <h1 class="title">{{ account.display_name }}</h1>
+        <p class="subtitle"><span class="pill {% if account.is_connected %}pill-on{% else %}pill-off{% endif %}">{% if account.is_connected %}подключён{% else %}не в сети{% endif %}</span></p>
+    </div>
+    <div class="head-actions">
+        {% if not account.is_connected %}<form action="/accounts/{{ account.id }}/reconnect" method="post" class="inline-form"><button type="submit" class="btn btn-ghost">Переподключить</button></form>{% endif %}
+        <form action="/accounts/{{ account.id }}/delete" method="post" class="inline-form" onsubmit="return confirm('Удалить «{{ account.display_name }}»? Сессия будет деавторизована, история кодов удалена.')"><button type="submit" class="btn btn-danger">Удалить</button></form>
+    </div>
+</div>
+
+<div class="panel">
+    <div class="panel-title">Облачный пароль (2FA)</div>
+    <div class="panel-desc">пароль двухэтапной проверки аккаунта · хранится в зашифрованном виде</div>
+    {% if account.twofa_enc %}
+    <div class="twofa-box">
+        <span class="twofa-val" id="twofa-val">••••••••</span>
+        <div class="twofa-actions">
+            <button class="copy-btn" id="twofa-reveal" onclick="revealTwofa()">Показать</button>
+            <button class="copy-btn" onclick="copyTwofa(this)">Копировать</button>
+        </div>
+    </div>
+    <form method="post" action="/accounts/{{ account.id }}/twofa/delete" onsubmit="return confirm('Удалить сохранённый пароль?')"><button type="submit" class="link-btn">Удалить сохранённый пароль</button></form>
+    {% else %}
+    <div class="note muted">Пароль не сохранён. Сайт не может его перехватить — Telegram не передаёт его в сообщениях. Сохраните вручную, чтобы не забыть.</div>
+    <form method="post" action="/accounts/{{ account.id }}/twofa/save" class="form">
+        <div class="field"><label for="twofa_password">Облачный пароль</label><input type="password" id="twofa_password" name="twofa_password" required></div>
+        <button type="submit" class="btn btn-ghost">Сохранить</button>
+    </form>
+    {% endif %}
+</div>
+
+<div class="codes" id="codes" data-latest-id="{{ codes[0].id if codes else 0 }}">
+    {% if codes %}
+        {% for code in codes %}
+        <div class="code-card {% if loop.first %}fresh{% endif %}">
+            <div class="code-row">
+                <div>
+                    <div class="code-sig">{% if loop.first %}новый код{% else %}код{% endif %}</div>
+                    <div class="code-main">{% if code.code %}<span class="code-digits">{{ code.code }}</span><button class="copy-btn" onclick="tgCopy('{{ code.code }}', this, '✓ Скопировано')">Копировать</button>{% else %}<span class="code-nodigit">сообщение без кода</span>{% endif %}</div>
+                </div>
+                <span class="code-time time-ago" data-time="{{ code.received_at }}">{{ code.received_at }}</span>
+            </div>
+            <details class="code-details"><summary>Полный текст</summary><pre class="code-full">{{ code.full_text }}</pre></details>
+        </div>
+        {% endfor %}
+    {% else %}
+    <div class="empty"><div class="empty-badge">📭</div><h2>Кодов пока нет</h2><p>Как только на этот аккаунт придёт код от Telegram, он появится здесь.</p></div>
+    {% endif %}
+</div>
+
+<div class="live-tag"><span class="live-dot"></span>Обновляется автоматически</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/time.js"></script>
+<script>
+const ACCOUNT_ID = {{ account.id }};
+function togglePhone(btn){
+    const el = btn.parentElement.querySelector('.phone-mask');
+    if(el.dataset.shown === '1'){ el.textContent = el.dataset.mask; el.dataset.shown=''; btn.textContent='показать'; }
+    else { el.textContent = el.dataset.full; el.dataset.shown='1'; btn.textContent='скрыть'; }
+}
+let twofaValue = null;
+async function loadTwofa(){
+    if(twofaValue !== null) return twofaValue;
+    const r = await fetch('/api/account/' + ACCOUNT_ID + '/twofa');
+    if(!r.ok) return '';
+    const d = await r.json(); twofaValue = d.has ? d.value : ''; return twofaValue;
+}
+async function revealTwofa(){
+    const el = document.getElementById('twofa-val'), btn = document.getElementById('twofa-reveal');
+    if(el.dataset.shown === '1'){ el.textContent='••••••••'; el.dataset.shown=''; btn.textContent='Показать'; return; }
+    const v = await loadTwofa(); el.textContent = v || '—'; el.dataset.shown='1'; btn.textContent='Скрыть';
+}
+async function copyTwofa(btn){ const v = await loadTwofa(); if(v) tgCopy(v, btn, '✓ Скопировано'); }
+// Сравниваем по id, а не по тексту: два одинаковых сообщения подряд
+// (Telegram присылает их регулярно) иначе не считались бы новым кодом.
+let latestId = parseInt(document.getElementById('codes').dataset.latestId || '0', 10) || 0;
+async function refresh(){
+    try{
+        const r = await fetch('/api/account/' + ACCOUNT_ID + '/codes');
+        if(r.status === 401){ location.href = '/login'; return; }
+        if(!r.ok) return;
+        const data = await r.json();
+        if(data.codes.length > 0 && data.codes[0].id > latestId) location.reload();
+    }catch(e){}
+}
+setInterval(refresh, 5000);
+</script>
+{% endblock %}

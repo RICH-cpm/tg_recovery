@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Журнал — TG Recovery{% endblock %}
+{% block content %}
+<div class="head"><div><div class="eyebrow">История</div><h1 class="title">Журнал действий</h1><p class="subtitle">Последние 200 событий учётной записи.</p></div></div>
+{% if logs %}
+<div class="table-wrap">
+    <table class="audit">
+        <thead><tr><th>Время</th><th>Действие</th><th>Детали</th><th>IP</th></tr></thead>
+        <tbody>
+            {% for log in logs %}
+            <tr>
+                <td><span class="time-ago" data-time="{{ log.created_at }}">{{ log.created_at }}</span></td>
+                <td>{% set a = log.action %}<span class="act {% if a in ['login_success','account_added','totp_enabled','username_changed','password_changed','backup_manual','twofa_saved'] %}ok{% elif a in ['login_failed','login_failed_totp','account_removed','accounts_bulk_removed','totp_disabled','twofa_removed'] %}bad{% elif a in ['logout','sessions_revoked'] %}warn{% endif %}">{{ a }}</span></td>
+                <td>{{ log.details or '—' }}</td>
+                <td>{{ log.ip_address or '—' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}<div class="empty"><div class="empty-badge">📋</div><h2>Журнал пуст</h2><p>Здесь появятся все действия в вашей учётной записи.</p></div>{% endif %}
+{% endblock %}
+{% block scripts %}<script src="/static/js/time.js"></script>{% endblock %}

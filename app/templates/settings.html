@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Настройки — TG Recovery{% endblock %}
+{% block content %}
+<div class="head"><div><div class="eyebrow">Управление</div><h1 class="title">Настройки</h1></div></div>
+{% if message %}<div class="alert alert-ok">{{ message }}</div>{% endif %}
+{% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+
+<div class="panel">
+    <div class="panel-title">Оформление</div>
+    <div class="switch-row"><div><div style="font-weight:600">Тёмная тема</div><span class="hint">По умолчанию — как на устройстве</span></div><label class="switch theme-switch"><input type="checkbox" onchange="setTheme(this.checked ? 'dark' : 'light')"><span class="slider"></span></label></div>
+</div>
+
+<div class="panel">
+    <div class="panel-title">Учётная запись</div>
+    <div class="kv"><span class="kv-k">Логин</span><span class="kv-v">{{ full_user.username }}</span></div>
+    <div class="kv"><span class="kv-k">Создана</span><span class="kv-v time-ago" data-time="{{ full_user.created_at }}">{{ full_user.created_at }}</span></div>
+    {% if full_user.last_login_at %}<div class="kv"><span class="kv-k">Последний вход</span><span class="kv-v time-ago" data-time="{{ full_user.last_login_at }}">{{ full_user.last_login_at }}</span></div>{% endif %}
+</div>
+
+<div class="panel">
+    <div class="panel-title">Резервное копирование</div>
+    <div class="panel-desc">база и зашифрованные сессии · хранится на сервере</div>
+    <form method="post" action="/settings/backup/save" class="form">
+        <div class="switch-row"><div><div style="font-weight:600">Автоматический бэкап</div><span class="hint">Создавать копии по расписанию</span></div><label class="switch"><input type="checkbox" name="backup_enabled" {% if backup.enabled %}checked{% endif %}><span class="slider"></span></label></div>
+        <div class="field"><label for="backup_period">Периодичность</label><select id="backup_period" name="backup_period"><option value="day" {% if backup.period == 'day' %}selected{% endif %}>Раз в день</option><option value="week" {% if backup.period == 'week' %}selected{% endif %}>Раз в неделю</option><option value="month" {% if backup.period == 'month' %}selected{% endif %}>Раз в месяц</option></select></div>
+        <button type="submit" class="btn btn-ghost">Сохранить</button>
+    </form>
+    <div class="divider"></div>
+    <div class="kv"><span class="kv-k">Последний бэкап</span><span class="kv-v">{% if backup.last_at %}<span class="time-ago" data-time="{{ backup.last_at }}">{{ backup.last_at }}</span>{% if backup.last_size %} · {{ backup.last_size }}{% endif %}{% else %}ещё не было{% endif %}</span></div>
+    <form method="post" action="/settings/backup/now" style="margin-top:14px"><button type="submit" class="btn btn-primary">Сделать бэкап сейчас</button></form>
+</div>
+
+<div class="panel">
+    <div class="panel-title">Управление аккаунтами</div>
+    <div class="panel-desc">удаление списком · сессии деавторизуются</div>
+    {% if accounts %}
+    <form method="post" action="/settings/accounts/delete" onsubmit="return confirm('Удалить выбранные аккаунты?')">
+        <div class="acc-list">
+            {% for a in accounts %}
+            <label class="acc-item"><input type="checkbox" name="account_ids" value="{{ a.id }}"><span class="acc-item-name">{{ a.display_name }}</span><span class="pill {% if a.is_connected %}pill-on{% else %}pill-off{% endif %}">{% if a.is_connected %}подключён{% else %}не в сети{% endif %}</span><span class="acc-item-phone">{{ a.phone_number }}</span></label>
+            {% endfor %}
+        </div>
+        <button type="submit" class="btn btn-danger">Удалить выбранные</button>
+    </form>
+    {% else %}<div class="note muted">Пока нет добавленных аккаунтов.</div>{% endif %}
+</div>
+
+<div class="panel">
+    <div class="panel-title">Сменить логин</div>
+    <form method="post" action="/settings/change-username" class="form">
+        <div class="field"><label for="new_username">Новый логин</label><input type="text" id="new_username" name="new_username" minlength="3" value="{{ full_user.username }}" required></div>
+        <div class="field"><label for="cpu">Подтвердите паролем</label><input type="password" id="cpu" name="current_password" required></div>
+        <button type="submit" class="btn btn-ghost">Сменить логин</button>
+    </form>
+</div>
+
+<div class="panel">
+    <div class="panel-title">Сменить пароль</div>
+    <form method="post" action="/settings/change-password" class="form">
+        <div class="field"><label for="cp">Текущий пароль</label><input type="password" id="cp" name="current_password" required></div>
+        <div class="field"><label for="np">Новый пароль</label><input type="password" id="np" name="new_password" minlength="8" required><span class="hint">Минимум 8 символов.</span></div>
+        <div class="field"><label for="conf">Подтвердите</label><input type="password" id="conf" name="confirm_password" minlength="8" required></div>
+        <button type="submit" class="btn btn-ghost">Сменить пароль</button>
+    </form>
+</div>
+
+<div class="panel">
+    <div class="panel-title">Двухфакторная аутентификация входа</div>
+    {% if full_user.totp_enabled %}
+    <div class="note">Включена. При входе нужен код из приложения-аутентификатора.</div>
+    <form method="post" action="/settings/totp/disable" class="form" onsubmit="return confirm('Отключить 2FA?')"><div class="field"><label for="tp">Подтвердите паролем</label><input type="password" id="tp" name="password" required></div><button type="submit" class="btn btn-danger">Отключить 2FA</button></form>
+    {% else %}
+    <div class="note muted">Защищает вход в эту панель. Рекомендуется, раз она доступна из интернета.</div>
+    <a href="/settings/totp/setup" class="btn btn-primary">Включить 2FA</a>
+    {% endif %}
+</div>
+
+<div class="panel">
+    <div class="panel-title">Сессии</div>
+    <div class="panel-desc">завершить вход на всех других устройствах</div>
+    <div class="note muted">Текущее устройство останется в системе. Остальные браузеры и устройства разлогинятся.</div>
+    <form method="post" action="/settings/sessions/revoke-all" onsubmit="return confirm('Завершить все другие сессии?')"><button type="submit" class="btn btn-ghost">Выйти на всех устройствах</button></form>
+</div>
+{% endblock %}
+{% block scripts %}<script src="/static/js/time.js"></script>{% endblock %}
