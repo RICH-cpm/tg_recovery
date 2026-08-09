@@ -170,7 +170,7 @@ NGINX_SITE="/etc/nginx/sites-available/$SERVICE_NAME"
 cat > "$NGINX_SITE" <<NGINXEOF
 server {
     listen 80; listen [::]:80;
-    server_name $DOMAIN;
+    server_name $DOMAIN www.$DOMAIN;
     location /.well-known/acme-challenge/ { root /var/www/html; }
     location / {
         proxy_pass http://127.0.0.1:$APP_PORT;
@@ -187,30 +187,77 @@ ln -sf "$NGINX_SITE" "/etc/nginx/sites-enabled/$SERVICE_NAME"
 nginx -t >/dev/null 2>&1 && systemctl reload nginx
 ok "HTTP настроен"
 
-step "SSL (Let's Encrypt)"
-warn "Если домен за Cloudflare (оранжевое облако) — проверка может не пройти. Включите 'DNS only' и запустите снова."
-if certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --redirect -m "$LE_EMAIL" >/dev/null 2>&1; then
-    ok "Сертификат получен"; SSL_OK=1
+step "Проверка DNS перед выпуском сертификата"
+# Самая частая причина отказа Let's Encrypt — A-записи заведены только для www,
+# а сертификат запрашивается для голого домена. Проверяем заранее, иначе
+# certbot просто упрётся в NXDOMAIN и сожжёт попытку из часового лимита.
+SERVER_IP="$(curl -fsS --max-time 10 https://api.ipify.org 2>/dev/null || true)"
+resolves_to(){ getent ahostsv4 "$1" 2>/dev/null | awk '{print $1}' | sort -u | paste -sd, -; }
+
+APEX_IP="$(resolves_to "$DOMAIN")"
+WWW_IP="$(resolves_to "www.$DOMAIN")"
+CERT_DOMAINS=()
+
+if [ -n "$APEX_IP" ]; then
+    ok "$DOMAIN -> $APEX_IP"
+    CERT_DOMAINS+=(-d "$DOMAIN")
 else
-    warn "Сертификат не получен. Сайт пока на http://$DOMAIN"; SSL_OK=0
+    warn "$DOMAIN не резолвится — нет A-записи для корня домена."
+    warn "  В DNS-панели добавьте:  Type=A  Name=@  Value=${SERVER_IP:-<IP этого сервера>}  Proxy=DNS only"
+fi
+if [ -n "$WWW_IP" ]; then
+    ok "www.$DOMAIN -> $WWW_IP"
+    CERT_DOMAINS+=(-d "www.$DOMAIN")
+else
+    warn "www.$DOMAIN не резолвится (не критично)"
+fi
+if [ -n "$SERVER_IP" ] && [ -n "$APEX_IP" ] && [ "$APEX_IP" != "$SERVER_IP" ]; then
+    warn "Домен указывает на $APEX_IP, а внешний IP этого сервера — $SERVER_IP."
+    warn "  Если включён проксирующий режим Cloudflare (оранжевое облако) — переключите на 'DNS only'."
+fi
+
+step "SSL (Let's Encrypt)"
+CERTBOT_LOG="/var/log/${SERVICE_NAME}_certbot.log"
+SSL_OK=0
+if [ ${#CERT_DOMAINS[@]} -eq 0 ]; then
+    warn "Ни одно имя не резолвится — запрос сертификата пропущен."
+else
+    # Вывод certbot больше не выбрасывается: без него причина отказа не видна.
+    if certbot --nginx "${CERT_DOMAINS[@]}" --non-interactive --agree-tos --redirect \
+               -m "$LE_EMAIL" >"$CERTBOT_LOG" 2>&1; then
+        ok "Сертификат получен"; SSL_OK=1
+    else
+        warn "Сертификат не получен. Что сказал certbot:"
+        tail -n 15 "$CERTBOT_LOG" | sed 's/^/      /'
+        warn "Полный лог: $CERTBOT_LOG"
+    fi
 fi
 
 CSP="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self';"
 
-if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
+# Имя каталога сертификата = первый -d в запросе: если корень домена не резолвился,
+# сертификат выпущен на www и лежит в live/www.$DOMAIN.
+CERT_DIR=""
+for candidate in "$DOMAIN" "www.$DOMAIN"; do
+    if [ -f "/etc/letsencrypt/live/$candidate/fullchain.pem" ]; then CERT_DIR="$candidate"; break; fi
+done
+SERVER_NAMES="$DOMAIN"
+[ -n "$WWW_IP" ] && SERVER_NAMES="$DOMAIN www.$DOMAIN"
+
+if [ -n "$CERT_DIR" ]; then
     step "Защищённая конфигурация Nginx (HTTPS)"
     cat > "$NGINX_SITE" <<NGINXEOF
 server {
     listen 80; listen [::]:80;
-    server_name $DOMAIN;
+    server_name $SERVER_NAMES;
     location /.well-known/acme-challenge/ { root /var/www/html; }
     location / { return 301 https://\$host\$request_uri; }
 }
 server {
     listen 443 ssl http2; listen [::]:443 ssl http2;
-    server_name $DOMAIN;
-    ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
+    server_name $SERVER_NAMES;
+    ssl_certificate /etc/letsencrypt/live/$CERT_DIR/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/$CERT_DIR/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_session_cache shared:SSL:10m;
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
