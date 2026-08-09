@@ -24,6 +24,17 @@ AUTO_DELETE_CODES_DAYS="${AUTO_DELETE_CODES_DAYS:-30}"
 C_G="\033[0;32m"; C_B="\033[0;34m"; C_Y="\033[1;33m"; C_R="\033[0;31m"; C_0="\033[0m"
 step(){ echo -e "\n${C_B}==>${C_0} $1"; }; ok(){ echo -e "${C_G}  ✓${C_0} $1"; }; warn(){ echo -e "${C_Y}  !${C_0} $1"; }; die(){ echo -e "${C_R}  ✗ $1${C_0}" >&2; exit 1; }
 
+# set -e обрывает скрипт молча: пользователь видит только незаконченный шаг и
+# приглашение оболочки. Ловушка называет строку и команду, на которой всё встало.
+set -E
+on_error(){
+    local rc=$? line="${BASH_LINENO[0]}" cmd="$BASH_COMMAND"
+    echo -e "\n${C_R}  ✗ Установщик остановлен на строке ${line} (код ${rc}).${C_0}" >&2
+    echo -e "${C_R}    Команда: ${cmd}${C_0}\n" >&2
+    exit "$rc"
+}
+trap on_error ERR
+
 [ "$(id -u)" -eq 0 ] || die "Запустите от root (sudo bash install.sh)."
 SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 [ -f "$SRC_DIR/app/main.py" ] || die "Запускайте из папки проекта (где app/main.py)."
@@ -65,7 +76,7 @@ if systemctl list-unit-files 2>/dev/null | grep -q "^${SERVICE_NAME}.service"; t
     sleep 1
 fi
 if ss -ltn 2>/dev/null | grep -q ":$APP_PORT "; then
-    HOLDER="$(ss -ltnp 2>/dev/null | grep ":$APP_PORT " | head -1)"
+    HOLDER="$(ss -ltnp 2>/dev/null | grep ":$APP_PORT " | head -1 || true)"
     echo -e "${C_Y}    Порт держит:${C_0} $HOLDER"
     die "Порт $APP_PORT занят другим процессом. Освободите его или поменяйте APP_PORT вверху install.sh и запустите снова."
 fi
@@ -95,8 +106,12 @@ ok "Готово"
 step "Конфигурация (.env)"
 ENV_FILE="$INSTALL_DIR/.env"
 if [ -f "$ENV_FILE" ] && grep -q '^ENCRYPTION_KEY=' "$ENV_FILE" && ! grep -q 'replace_with' "$ENV_FILE"; then
-    SECRET_KEY="$(grep '^SECRET_KEY=' "$ENV_FILE" | cut -d= -f2-)"
-    ENCRYPTION_KEY="$(grep '^ENCRYPTION_KEY=' "$ENV_FILE" | cut -d= -f2-)"
+    # `|| true`: отсутствие строки в .env не должно обрывать установку — ниже
+    # пустой ключ будет сгенерирован заново.
+    SECRET_KEY="$(grep -m1 '^SECRET_KEY=' "$ENV_FILE" | cut -d= -f2- || true)"
+    ENCRYPTION_KEY="$(grep -m1 '^ENCRYPTION_KEY=' "$ENV_FILE" | cut -d= -f2- || true)"
+    [ -n "$SECRET_KEY" ] || SECRET_KEY="$(openssl rand -hex 32)"
+    [ -n "$ENCRYPTION_KEY" ] || die "В $ENV_FILE нет ENCRYPTION_KEY, но файл существует. Проверьте его вручную — перегенерация ключа сделает сохранённые сессии нечитаемыми."
     warn "Сохраняю прежние ключи шифрования (аккаунты и пароли не потеряются)"
 else
     SECRET_KEY="$(openssl rand -hex 32)"; ENCRYPTION_KEY="$(openssl rand -hex 32)"; ok "Новые ключи сгенерированы"
@@ -192,7 +207,16 @@ step "Проверка DNS перед выпуском сертификата"
 # а сертификат запрашивается для голого домена. Проверяем заранее, иначе
 # certbot просто упрётся в NXDOMAIN и сожжёт попытку из часового лимита.
 SERVER_IP="$(curl -fsS --max-time 10 https://api.ipify.org 2>/dev/null || true)"
-resolves_to(){ getent ahostsv4 "$1" 2>/dev/null | awk '{print $1}' | sort -u | paste -sd, -; }
+[ -n "$SERVER_IP" ] || SERVER_IP="$(hostname -I 2>/dev/null | awk '{print $1}' || true)"
+
+# ВАЖНО: getent возвращает код 2, когда имя не найдено, а при set -e + pipefail
+# это молча убивает весь установщик прямо на присваивании. Неуспешный поиск —
+# нормальный результат, поэтому гасим код возврата и отдаём пустую строку.
+resolves_to(){
+    local out=""
+    out="$(getent ahostsv4 "$1" 2>/dev/null | awk '{print $1}' | sort -u | paste -sd, -)" || out=""
+    printf '%s' "$out"
+}
 
 APEX_IP="$(resolves_to "$DOMAIN")"
 WWW_IP="$(resolves_to "www.$DOMAIN")"
@@ -242,7 +266,7 @@ for candidate in "$DOMAIN" "www.$DOMAIN"; do
     if [ -f "/etc/letsencrypt/live/$candidate/fullchain.pem" ]; then CERT_DIR="$candidate"; break; fi
 done
 SERVER_NAMES="$DOMAIN"
-[ -n "$WWW_IP" ] && SERVER_NAMES="$DOMAIN www.$DOMAIN"
+if [ -n "$WWW_IP" ]; then SERVER_NAMES="$DOMAIN www.$DOMAIN"; fi
 
 if [ -n "$CERT_DIR" ]; then
     step "Защищённая конфигурация Nginx (HTTPS)"
@@ -292,7 +316,12 @@ ok "Готово"
 
 step "Ежедневный бэкап (cron)"
 CRON="0 3 * * * cd $INSTALL_DIR && $INSTALL_DIR/venv/bin/python -m scripts.backup >> $INSTALL_DIR/data/backup.log 2>&1"
-( sudo -u "$SERVICE_USER" crontab -l 2>/dev/null | grep -v 'scripts.backup' ; echo "$CRON" ) | sudo -u "$SERVICE_USER" crontab -
+# У свежего пользователя crontab ещё нет: `crontab -l` возвращает 1, а `grep -v`
+# на пустом вводе — тоже 1. При set -e + pipefail это обрывало установку, да ещё
+# и отправляло пустой ввод в `crontab -`, стирая расписание.
+EXISTING_CRON="$(sudo -u "$SERVICE_USER" crontab -l 2>/dev/null || true)"
+EXISTING_CRON="$(printf '%s\n' "$EXISTING_CRON" | grep -v 'scripts.backup' || true)"
+printf '%s\n%s\n' "$EXISTING_CRON" "$CRON" | sed '/^[[:space:]]*$/d' | sudo -u "$SERVICE_USER" crontab -
 ok "Прописан"
 
 echo -e "\n${C_G}════════════ Установка завершена ════════════${C_0}\n"
