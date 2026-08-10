@@ -1,0 +1,11 @@
+{% import "_icons.html" as i %}
+<div class="empty empty-plain" data-stag>
+    <div class="empty-orb" style="width:150px;height:150px">
+        <div class="ring"></div>
+        <div class="ring-dash" style="inset:20px"></div>
+        <div class="core core-404">404</div>
+    </div>
+    <h2 style="font-size:23px" data-i18n="nf_title">Страница не найдена</h2>
+    <p style="font-size:14.5px" data-i18n="nf_sub">Такой страницы нет или она была удалена.</p>
+    <a href="/" class="btn btn-primary">{{ i.ico('home', 17, 1.9) }}<span data-i18n="nf_home">На главную</span></a>
+</div>

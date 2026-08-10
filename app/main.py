@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .config import config
-from .templating import templates
+from .templating import templates, nav_stats
 from .auth import get_current_user
 from .database import init_db_sync, execute, close_db
 from .telegram_manager import tg_manager
@@ -113,11 +113,15 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     """404 — красивая страница, а для /api/* и любых других кодов — JSON."""
     if request.url.path.startswith("/api/") or exc.status_code != 404:
         return JSONResponse({"detail": exc.detail}, status_code=exc.status_code, headers=getattr(exc, "headers", None))
-    # Пользователя достаём, чтобы на странице 404 осталась навигация.
+    # Вошедшему 404 показываем внутри панели, гостю — отдельной страницей.
     user = None
     with suppress(Exception):
         user = await get_current_user(request)
-    return templates.TemplateResponse(request, "404.html", {"user": user}, status_code=404)
+    if not user:
+        return templates.TemplateResponse(request, "404_guest.html", {"user": None}, status_code=404)
+    return templates.TemplateResponse(
+        request, "404.html", {"user": user, **await nav_stats(user)}, status_code=404
+    )
 
 
 def run():

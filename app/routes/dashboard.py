@@ -1,7 +1,7 @@
 """Список аккаунтов, карточка аккаунта и API кодов."""
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
-from ..templating import templates
+from ..templating import templates, nav_stats
 from ..auth import get_current_user
 from ..database import fetch_all, fetch_one, execute
 
@@ -25,7 +25,8 @@ async def dashboard(request: Request):
     unread_total = sum(a["unread_count"] or 0 for a in accounts)
     return templates.TemplateResponse(
         request, "dashboard.html",
-        {"user": user, "accounts": accounts, "connected": connected, "unread_total": unread_total},
+        {"user": user, "accounts": accounts, "connected": connected, "unread_total": unread_total,
+         "nav": "accounts", **await nav_stats(user)},
     )
 
 
@@ -37,7 +38,10 @@ async def account_detail(request: Request, account_id: int):
     if not account: raise HTTPException(404, "Аккаунт не найден")
     codes = await fetch_all("SELECT * FROM received_codes WHERE account_id = ? ORDER BY received_at DESC, id DESC LIMIT 100", (account_id,))
     await execute("UPDATE received_codes SET is_read = 1 WHERE account_id = ? AND is_read = 0", (account_id,))
-    return templates.TemplateResponse(request, "account_detail.html", {"user": user, "account": account, "codes": codes})
+    return templates.TemplateResponse(
+        request, "account_detail.html",
+        {"user": user, "account": account, "codes": codes, "nav": "accounts", **await nav_stats(user)},
+    )
 
 
 @router.get("/api/account/{account_id}/codes")

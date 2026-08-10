@@ -161,3 +161,32 @@ def test_backup_skips_partial_session_files(monkeypatch, tmp_path):
 def test_maybe_backup_returns_false_without_database(monkeypatch, tmp_path):
     monkeypatch.setattr(backup_service.config, "DATABASE_PATH", tmp_path / "missing.db")
     assert backup_service.maybe_backup() is False
+
+
+# --------------------------------------------------------- фильтры шаблонов
+
+@pytest.mark.parametrize("phone,masked", [
+    ("+79211234412", "+7 921 ••• 44 12"),
+    ("+14155552290", "+1 415 ••• 22 90"),
+    # Код страны из двух и трёх цифр не должен резаться по первой.
+    ("+447700900118", "+44 770 ••• 01 18"),
+    ("+4915277730", "+49 152 ••• 77 30"),
+    ("+380501234567", "+380 501 ••• 45 67"),
+    ("+998901234567", "+998 901 ••• 45 67"),
+    ("", "—"),
+    ("+123", "+123"),
+])
+def test_mask_phone(phone, masked):
+    from app.templating import mask_phone
+    assert mask_phone(phone) == masked
+
+
+def test_mask_phone_never_leaks_the_middle():
+    from app.templating import mask_phone
+    assert "1234" not in mask_phone("+79211234412")
+
+
+@pytest.mark.parametrize("name,letter", [("Личный", "Л"), ("work", "W"), ("  ёлка", "Ё"), ("", "•"), (None, "•")])
+def test_initials(name, letter):
+    from app.templating import initials
+    assert initials(name) == letter

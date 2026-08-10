@@ -21,3 +21,6 @@ htmlcov/
 .DS_Store
 .idea/
 .vscode/
+
+# скриншоты проверки вёрстки
+shots/

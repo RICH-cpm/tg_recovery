@@ -1,47 +1,102 @@
-{% extends "base.html" %}
+{% extends "app.html" %}
+{% import "_icons.html" as i %}
+{% set page_kicker = 'Аккаунты' %}{% set page_kicker_key = 'dash_title' %}
+{% set page_title = 'Новый аккаунт' %}{% set page_title_key = 'add_title' %}
 {% block title %}Добавить аккаунт — TG Recovery{% endblock %}
-{% block content %}
-<div class="narrow">
-    <a href="/" class="back-link">← Назад</a>
-    <h1 class="title">Новый аккаунт</h1>
-    <div class="steps">
-        <div class="step {% if step == 'phone' %}on{% elif step in ['code','password','name'] %}done{% endif %}"><span class="step-n">1</span><span class="step-l">Телефон</span></div>
-        <div class="step {% if step == 'code' %}on{% elif step in ['password','name'] %}done{% endif %}"><span class="step-n">2</span><span class="step-l">Код</span></div>
-        {% if step == 'password' %}<div class="step on"><span class="step-n">3</span><span class="step-l">2FA</span></div>{% endif %}
-        <div class="step {% if step == 'name' %}on{% endif %}"><span class="step-n">{% if step == 'password' %}4{% else %}3{% endif %}</span><span class="step-l">Название</span></div>
-    </div>
-    {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
 
-    {% if step == 'phone' %}
-    <form method="post" action="/accounts/add/phone" class="form">
-        <div class="field"><label for="phone_number">Номер телефона</label><input type="tel" id="phone_number" name="phone_number" class="mono-input" placeholder="+7 999 123-45-67" value="{{ phone_number or '' }}" required autofocus><span class="hint">С кодом страны. На него Telegram пришлёт код подтверждения.</span></div>
-        <button type="submit" class="btn btn-primary btn-block">Отправить код</button>
-    </form>
-    {% elif step == 'code' %}
-    <form method="post" action="/accounts/add/code" class="form">
-        <input type="hidden" name="phone_number" value="{{ phone_number }}">
-        <div class="note">Код отправлен на <strong>{{ phone_number }}</strong>. Проверьте Telegram на других устройствах (или SMS, если сессий больше нет).</div>
-        <div class="field"><label for="code">Код подтверждения</label><input type="text" id="code" name="code" class="mono-input" inputmode="numeric" pattern="[0-9]*" placeholder="12345" required autofocus></div>
-        <button type="submit" class="btn btn-primary btn-block">Подтвердить</button>
-    </form>
-    <form method="post" action="/accounts/add/cancel" style="text-align:center;margin-top:12px"><input type="hidden" name="phone_number" value="{{ phone_number }}"><button type="submit" class="link-btn">Отменить</button></form>
-    {% elif step == 'password' %}
-    <form method="post" action="/accounts/add/password" class="form">
-        <input type="hidden" name="phone_number" value="{{ phone_number }}">
-        <div class="note">На аккаунте включена двухэтапная защита. Введите облачный пароль Telegram (не код из SMS).</div>
-        <div class="field"><label for="password">Облачный пароль</label><input type="password" id="password" name="password" required autofocus></div>
-        <div class="checkbox-row"><input type="checkbox" id="save_twofa" name="save_twofa"><label for="save_twofa">Сохранить пароль, чтобы не забыть (зашифрованно)</label></div>
-        <button type="submit" class="btn btn-primary btn-block">Подтвердить</button>
-    </form>
-    <form method="post" action="/accounts/add/cancel" style="text-align:center;margin-top:12px"><input type="hidden" name="phone_number" value="{{ phone_number }}"><button type="submit" class="link-btn">Отменить</button></form>
-    {% elif step == 'name' %}
-    <form method="post" action="/accounts/add/finalize" class="form">
-        <input type="hidden" name="phone_number" value="{{ phone_number }}">
-        <div class="note"><strong>{{ phone_number }}</strong> авторизован. Дайте аккаунту понятное название.</div>
-        <div class="field"><label for="display_name">Название</label><input type="text" id="display_name" name="display_name" placeholder="Личный, Рабочий…" maxlength="50" required autofocus></div>
-        <button type="submit" class="btn btn-primary btn-block">Сохранить</button>
-    </form>
-    <form method="post" action="/accounts/add/cancel" style="text-align:center;margin-top:12px"><input type="hidden" name="phone_number" value="{{ phone_number }}"><button type="submit" class="link-btn">Отменить</button></form>
-    {% endif %}
+{% block content %}
+<a href="/" class="back-link" data-stag>{{ i.ico('arrow-left', 15, 2) }}<span data-i18n="back">Назад</span></a>
+
+<div class="narrow">
+    <div class="center-head" data-stag>
+        <div class="kicker" data-i18n="dash_title">Аккаунты</div>
+        <h1 class="page-title" data-i18n="add_title">Новый аккаунт</h1>
+        <p class="page-sub" style="margin:0 auto" data-i18n="add_sub">Три шага — и коды начнут приходить сюда.</p>
+    </div>
+
+    {% set done = {'phone': 0, 'code': 1, 'password': 1, 'name': 2}.get(step, 0) %}
+    <div class="steps" data-stag>
+        <div class="step {% if done > 0 %}done{% elif step == 'phone' %}on{% endif %}">
+            <span class="step-n">1</span><span class="step-l" data-i18n="step_phone">Телефон</span>
+        </div>
+        <span class="step-con {% if done > 0 %}done{% endif %}"></span>
+        <div class="step {% if done > 1 %}done{% elif step in ['code', 'password'] %}on{% endif %}">
+            <span class="step-n">2</span><span class="step-l" data-i18n="step_code">Код</span>
+        </div>
+        <span class="step-con {% if done > 1 %}done{% endif %}"></span>
+        <div class="step {% if step == 'name' %}on{% endif %}">
+            <span class="step-n">3</span><span class="step-l" data-i18n="step_name">Название</span>
+        </div>
+    </div>
+
+    <div class="glass">
+        {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+
+        {% if step == 'phone' %}
+        <form method="post" action="/accounts/add/phone" class="form">
+            <label class="field">
+                <span class="field-label" data-i18n="f_phone">Номер телефона</span>
+                <input type="tel" name="phone_number" class="mono-input" style="font-size:15px" placeholder="+7 999 123-45-67" value="{{ phone_number or '' }}" required autofocus>
+                <span class="hint" data-i18n="add_phone_hint">С кодом страны. На него Telegram пришлёт код подтверждения.</span>
+            </label>
+            <button type="submit" class="btn btn-primary btn-block" data-i18n="send_code">Отправить код</button>
+        </form>
+
+        {% elif step == 'code' %}
+        <div class="note" style="margin-bottom:18px">
+            <span data-i18n="add_code_note">Код отправлен на</span> <strong style="color:var(--text);font-family:var(--font-mono)">{{ phone_number }}</strong>.
+            <span data-i18n="add_code_note2">Проверьте Telegram на других устройствах или SMS.</span>
+        </div>
+        <form method="post" action="/accounts/add/code" class="form">
+            <input type="hidden" name="phone_number" value="{{ phone_number }}">
+            <label class="field">
+                <span class="field-label" data-i18n="f_code">Код подтверждения</span>
+                <input type="text" name="code" class="code-input" inputmode="numeric" pattern="[0-9]*" placeholder="1 2 3 4 5" required autofocus>
+            </label>
+            <button type="submit" class="btn btn-primary btn-block" data-i18n="confirm">Подтвердить</button>
+        </form>
+        <form method="post" action="/accounts/add/cancel" style="margin-top:12px;text-align:center">
+            <input type="hidden" name="phone_number" value="{{ phone_number }}">
+            <button type="submit" class="link-btn" data-i18n="cancel">Отменить</button>
+        </form>
+
+        {% elif step == 'password' %}
+        <div class="note" style="margin-bottom:18px" data-i18n="add_pw_note">На аккаунте включена двухэтапная защита. Введите облачный пароль Telegram (не код из SMS).</div>
+        <form method="post" action="/accounts/add/password" class="form">
+            <input type="hidden" name="phone_number" value="{{ phone_number }}">
+            <label class="field">
+                <span class="field-label" data-i18n="twofa_field">Облачный пароль</span>
+                <input type="password" name="password" required autofocus>
+            </label>
+            <label class="acc-item" style="cursor:pointer">
+                <input type="checkbox" name="save_twofa">
+                <span class="acc-item-name" style="font-weight:500" data-i18n="add_save_pw">Сохранить пароль, чтобы не забыть (зашифрованно)</span>
+            </label>
+            <button type="submit" class="btn btn-primary btn-block" data-i18n="confirm">Подтвердить</button>
+        </form>
+        <form method="post" action="/accounts/add/cancel" style="margin-top:12px;text-align:center">
+            <input type="hidden" name="phone_number" value="{{ phone_number }}">
+            <button type="submit" class="link-btn" data-i18n="cancel">Отменить</button>
+        </form>
+
+        {% elif step == 'name' %}
+        <div class="note note-ok" style="margin-bottom:18px">
+            <span style="color:var(--ok)">{{ i.ico('check', 18, 2) }}</span>
+            <span><strong style="color:var(--text);font-family:var(--font-mono)">{{ phone_number }}</strong> <span data-i18n="add_name_note">авторизован. Дайте аккаунту понятное название.</span></span>
+        </div>
+        <form method="post" action="/accounts/add/finalize" class="form">
+            <input type="hidden" name="phone_number" value="{{ phone_number }}">
+            <label class="field">
+                <span class="field-label" data-i18n="f_name">Название</span>
+                <input type="text" name="display_name" data-i18n-placeholder="f_name_ph" placeholder="Личный, Рабочий…" maxlength="50" required autofocus>
+            </label>
+            <button type="submit" class="btn btn-primary btn-block" data-i18n="finish">Сохранить</button>
+        </form>
+        <form method="post" action="/accounts/add/cancel" style="margin-top:12px;text-align:center">
+            <input type="hidden" name="phone_number" value="{{ phone_number }}">
+            <button type="submit" class="link-btn" data-i18n="cancel">Отменить</button>
+        </form>
+        {% endif %}
+    </div>
 </div>
 {% endblock %}

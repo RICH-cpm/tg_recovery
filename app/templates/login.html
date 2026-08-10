@@ -1,16 +1,76 @@
 {% extends "base.html" %}
+{% import "_icons.html" as i %}
 {% block title %}Вход — TG Recovery{% endblock %}
-{% block content %}
-<div class="auth-wrap">
-    <div class="auth-card">
-        <div class="auth-top"><div class="auth-emblem">🔐</div><div class="auth-title">TG Recovery</div><div class="auth-note">Защищённый доступ</div></div>
-        {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
-        <form method="post" action="/login" class="form">
-            <div class="field"><label for="username">Логин</label><input type="text" id="username" name="username" value="{{ username or '' }}" autocomplete="username" required autofocus></div>
-            <div class="field"><label for="password">Пароль</label><input type="password" id="password" name="password" autocomplete="current-password" required></div>
-            {% if show_totp %}<div class="field"><label for="totp_code">Код двухфакторной аутентификации</label><input type="text" id="totp_code" name="totp_code" class="mono-input" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="000000" autocomplete="one-time-code" autofocus required></div>{% else %}<input type="hidden" name="totp_code" value="">{% endif %}
-            <button type="submit" class="btn btn-primary btn-block">Войти</button>
-        </form>
+
+{% block layout %}
+<div class="auth">
+    <div class="auth-tools">
+        <div class="seg" role="group" aria-label="Язык">
+            <button type="button" data-lang-set="ru">RU</button>
+            <button type="button" data-lang-set="en">EN</button>
+        </div>
+        <button type="button" class="icon-btn" data-theme-toggle style="width:38px;height:38px" data-i18n-title="theme_toggle" title="Сменить тему" aria-label="Сменить тему">
+            <span class="ico-dark">{{ i.ico('sun', 17) }}</span>
+            <span class="ico-light" hidden>{{ i.ico('moon', 17) }}</span>
+        </button>
+    </div>
+
+    <div class="auth-left">
+        <div class="auth-brand">
+            <span class="auth-brand-mark" style="color:var(--accent)">{{ i.ico('shield', 19) }}</span>
+            <span class="auth-brand-name">TG Recovery</span>
+        </div>
+
+        <div class="auth-pitch">
+            <h2 data-i18n="login_tag">Ваши коды входа — под замком.</h2>
+            <p data-i18n="login_tag2">Сессии Telegram работают на вашем сервере. Коды авторизации приходят автоматически — вы видите их в защищённой панели.</p>
+        </div>
+
+        <div class="auth-orbit" aria-hidden="true">
+            <i class="o1"></i><i class="o2"></i><i class="o3"></i><i class="o4"></i>
+            <i class="sat"><span></span></i>
+            <i class="sat2"><span></span></i>
+            <i class="hub" style="color:var(--accent)">{{ i.ico('shield', 44, 1.5) }}</i>
+        </div>
+
+        <div class="auth-foot">
+            {{ i.ico('lock', 14, 1.7) }}
+            <span data-i18n="login_left_foot">Self-hosted · данные не покидают ваш сервер</span>
+        </div>
+    </div>
+
+    <div class="auth-right">
+        <div class="auth-card">
+            <div class="kicker" data-i18n="login_kicker">Защищённый доступ</div>
+            <h1 data-i18n="login_h">Вход в панель</h1>
+            <p data-i18n="login_sub">Панель восстановления кодов Telegram. Доступ только для владельца.</p>
+
+            {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+
+            <form method="post" action="/login" class="form">
+                <label class="field">
+                    <span class="field-label" data-i18n="f_login">Логин</span>
+                    <input type="text" name="username" value="{{ username or '' }}" autocomplete="username" required {% if not show_totp %}autofocus{% endif %}>
+                </label>
+                <label class="field">
+                    <span class="field-label" data-i18n="f_password">Пароль</span>
+                    <input type="password" name="password" autocomplete="current-password" required>
+                </label>
+                {% if show_totp %}
+                <label class="field">
+                    <span class="field-label" data-i18n="f_totp">Код двухфакторной аутентификации</span>
+                    <input type="text" name="totp_code" class="otp-input" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="000000" autocomplete="one-time-code" required autofocus>
+                </label>
+                {% else %}
+                <input type="hidden" name="totp_code" value="">
+                {% endif %}
+                <button type="submit" class="btn btn-primary btn-block" style="margin-top:6px" data-i18n="signin">Войти</button>
+            </form>
+
+            <div class="auth-secure">
+                <span></span><span data-i18n="login_secure">Соединение зашифровано</span>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}

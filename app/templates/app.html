@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% import "_icons.html" as i %}
+
+{# Дочерние шаблоны задают их через {% set %} на верхнем уровне:
+   page_kicker / page_title — текст, *_key — ключ для переключателя языка. #}
+{% set page_kicker = page_kicker | default('') %}
+{% set page_title = page_title | default('TG Recovery') %}
+
+{% block layout %}
+<div class="app">
+    <aside class="sidebar">
+        <a href="/" class="brand hide-mobile">
+            <span class="brand-mark" style="color:var(--accent)">{{ i.ico('shield', 19) }}</span>
+            <span class="brand-text">
+                <span class="brand-name">TG Recovery</span>
+                <span class="brand-sub" data-i18n="brand_sub">коды входа</span>
+            </span>
+        </a>
+
+        <nav class="nav">
+            <a href="/" class="nav-link {% if nav == 'accounts' %}active{% endif %}">
+                {% if nav == 'accounts' %}<span class="nav-mark hide-mobile"></span>{% endif %}
+                {{ i.ico('grid', 19) }}
+                <span data-i18n="nav_accounts">Аккаунты</span>
+                {% if nav_unread %}<span class="nav-badge hide-mobile">{{ nav_unread }}</span>{% endif %}
+            </a>
+            <a href="/audit" class="nav-link {% if nav == 'audit' %}active{% endif %}">
+                {% if nav == 'audit' %}<span class="nav-mark hide-mobile"></span>{% endif %}
+                {{ i.ico('clock', 19) }}
+                <span data-i18n="nav_journal">Журнал</span>
+            </a>
+            <a href="/settings" class="nav-link {% if nav == 'settings' %}active{% endif %}">
+                {% if nav == 'settings' %}<span class="nav-mark hide-mobile"></span>{% endif %}
+                {{ i.ico('gear', 19) }}
+                <span data-i18n="nav_settings">Настройки</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-spacer hide-mobile"></div>
+
+        <div class="live-card hide-mobile">
+            <div class="live-head">
+                <span class="live-dot"></span>
+                <span class="live-label" data-i18n="live">В сети</span>
+            </div>
+            <div class="live-nums">
+                <span class="live-num">{{ nav_connected }}</span>
+                <span class="live-of">/ {{ nav_total }} <span data-i18n="sb_online">на связи</span></span>
+            </div>
+            <div class="live-bar"><span style="width:{{ nav_pct }}%"></span></div>
+        </div>
+
+        <div class="who hide-mobile">
+            <span class="who-ava">{{ user.username | initials }}</span>
+            <span class="who-text">
+                <span class="who-name">{{ user.username }}</span>
+                <span class="who-role" data-i18n="user_role">Администратор</span>
+            </span>
+            <form action="/logout" method="post" class="inline-form">
+                <button type="submit" class="who-exit" data-i18n-title="logout" title="Выйти">{{ i.ico('exit', 17) }}</button>
+            </form>
+        </div>
+    </aside>
+
+    <div class="main">
+        <header class="topbar">
+            <div class="topbar-titles">
+                <span class="topbar-kicker"{% if page_kicker_key %} data-i18n="{{ page_kicker_key }}"{% endif %}>{{ page_kicker }}</span>
+                <span class="topbar-title"{% if page_title_key %} data-i18n="{{ page_title_key }}"{% endif %}>{{ page_title }}</span>
+            </div>
+            <div class="topbar-grow"></div>
+
+            {% block topbar_extra %}{% endblock %}
+
+            <div class="seg" role="group" aria-label="Язык">
+                <button type="button" data-lang-set="ru">RU</button>
+                <button type="button" data-lang-set="en">EN</button>
+            </div>
+            <button type="button" class="icon-btn" data-theme-toggle data-i18n-title="theme_toggle" title="Сменить тему" aria-label="Сменить тему">
+                <span class="ico-dark">{{ i.ico('sun', 18) }}</span>
+                <span class="ico-light" hidden>{{ i.ico('moon', 18) }}</span>
+            </button>
+        </header>
+
+        <div class="content">
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+</div>
+{% endblock %}

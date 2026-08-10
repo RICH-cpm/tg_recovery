@@ -1,7 +1,7 @@
 """Добавление, удаление и облачный пароль Telegram-аккаунтов."""
 from fastapi import APIRouter, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
-from ..templating import templates
+from ..templating import templates, nav_stats
 from ..auth import get_current_user, get_client_ip
 from ..database import fetch_one, execute, log_action
 from ..crypto import encrypt_str, try_decrypt_str
@@ -16,9 +16,11 @@ def _login_redirect():
     return RedirectResponse("/login", status_code=302)
 
 
-def _render(request, user, step, status_code=200, **ctx):
+async def _render(request, user, step, status_code=200, **ctx):
     return templates.TemplateResponse(
-        request, "add_account.html", {"user": user, "step": step, **ctx}, status_code=status_code
+        request, "add_account.html",
+        {"user": user, "step": step, "nav": "accounts", **await nav_stats(user), **ctx},
+        status_code=status_code,
     )
 
 
@@ -33,7 +35,7 @@ async def _owned_account(user, account_id):
 async def add_page(request: Request):
     user = await get_current_user(request)
     if not user: return _login_redirect()
-    return _render(request, user, "phone")
+    return await _render(request, user, "phone")
 
 
 @router.post("/accounts/add/phone", response_class=HTMLResponse)
@@ -43,10 +45,10 @@ async def submit_phone(request: Request, phone_number: str = Form(...)):
     phone = normalize_phone(phone_number)
     r = await tg_manager.request_code(user["id"], phone)
     if not r["success"]:
-        return _render(request, user, "phone", 400, error=r.get("error"), phone_number=phone_number)
+        return await _render(request, user, "phone", 400, error=r.get("error"), phone_number=phone_number)
     # В журнал пишем только последние цифры: полный номер там не нужен.
     await log_action(user["id"], "account_add_phone", f"…{phone[-4:]}", get_client_ip(request))
-    return _render(request, user, "code", phone_number=phone)
+    return await _render(request, user, "code", phone_number=phone)
 
 
 @router.post("/accounts/add/code", response_class=HTMLResponse)
@@ -56,10 +58,10 @@ async def submit_code(request: Request, phone_number: str = Form(...), code: str
     phone = normalize_phone(phone_number)
     r = await tg_manager.submit_code(user["id"], phone, code.strip())
     if not r["success"]:
-        return _render(request, user, "code", 400, phone_number=phone, error=r.get("error"))
+        return await _render(request, user, "code", 400, phone_number=phone, error=r.get("error"))
     if r.get("needs_password"):
-        return _render(request, user, "password", phone_number=phone)
-    return _render(request, user, "name", phone_number=phone)
+        return await _render(request, user, "password", phone_number=phone)
+    return await _render(request, user, "name", phone_number=phone)
 
 
 @router.post("/accounts/add/password", response_class=HTMLResponse)
@@ -71,8 +73,8 @@ async def submit_pw(request: Request, phone_number: str = Form(...), password: s
     twofa_enc = encrypt_str(password) if save_twofa == "on" and password else None
     r = await tg_manager.submit_password(user["id"], phone, password, twofa_enc)
     if not r["success"]:
-        return _render(request, user, "password", 400, phone_number=phone, error=r.get("error"))
-    return _render(request, user, "name", phone_number=phone)
+        return await _render(request, user, "password", 400, phone_number=phone, error=r.get("error"))
+    return await _render(request, user, "name", phone_number=phone)
 
 
 @router.post("/accounts/add/finalize")
@@ -83,7 +85,7 @@ async def finalize(request: Request, phone_number: str = Form(...), display_name
     display_name = (display_name or "").strip()[:MAX_NAME_LEN] or phone
     r = await tg_manager.finalize_account(user["id"], phone, display_name)
     if not r["success"]:
-        return _render(request, user, "name", 400, phone_number=phone, error=r.get("error"))
+        return await _render(request, user, "name", 400, phone_number=phone, error=r.get("error"))
     await log_action(user["id"], "account_added", f"account_id={r['account_id']}", get_client_ip(request))
     return RedirectResponse(f"/account/{r['account_id']}", status_code=302)
 

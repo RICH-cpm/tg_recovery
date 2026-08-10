@@ -1,12 +1,49 @@
-{% extends "base.html" %}
+{% extends "app.html" %}
+{% import "_icons.html" as i %}
+{% set page_kicker = 'Управление' %}{% set page_kicker_key = 'set_kicker' %}
+{% set page_title = 'Двухфакторная аутентификация' %}{% set page_title_key = 'sec_2fa' %}
 {% block title %}Включение 2FA — TG Recovery{% endblock %}
+
 {% block content %}
-<div class="narrow">
-    <a href="/settings" class="back-link">← Настройки</a>
-    <h1 class="title">Двухфакторная аутентификация</h1>
+<a href="/settings" class="back-link" data-stag>{{ i.ico('arrow-left', 15, 2) }}<span data-i18n="nav_settings">Настройки</span></a>
+
+<div class="narrow-lg">
+    <h1 data-stag style="margin:0 0 24px;text-align:center;font-size:clamp(24px,3vw,32px)" data-i18n="sec_2fa">Двухфакторная аутентификация</h1>
+
     {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
-    <div class="panel"><div class="panel-title">1. Приложение</div><div class="note">Установите Google Authenticator, Authy или другое приложение с поддержкой TOTP.</div></div>
-    <div class="panel"><div class="panel-title">2. Сканирование</div><div class="qr-box"><img src="data:image/png;base64,{{ qr_base64 }}" alt="QR" class="qr-img"><div style="flex:1;min-width:200px"><span class="hint">или введите ключ вручную:</span><code class="secret">{{ secret }}</code></div></div></div>
-    <div class="panel"><div class="panel-title">3. Подтверждение</div><form method="post" action="/settings/totp/enable" class="form"><div class="field"><label for="code">Код из приложения</label><input type="text" id="code" name="code" class="mono-input" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="000000" required autofocus></div><button type="submit" class="btn btn-primary">Подтвердить и включить</button></form></div>
+
+    <div class="totp-steps" data-stag>
+        <div class="totp-step">
+            <span class="totp-n">1</span>
+            <div class="totp-body">
+                <div class="totp-h" data-i18n="totp1h">Приложение</div>
+                <div class="totp-d" data-i18n="totp1d">Установите Google Authenticator, Authy или другое приложение с поддержкой TOTP.</div>
+            </div>
+        </div>
+
+        <div class="totp-step">
+            <span class="totp-n">2</span>
+            <div class="totp-body">
+                <div class="totp-h" data-i18n="totp2h">Сканирование</div>
+                <div class="qr-box">
+                    <img src="data:image/png;base64,{{ qr_base64 }}" alt="QR" class="qr-img">
+                    <div style="flex:1;min-width:170px">
+                        <span class="hint" data-i18n="totp2m">или введите ключ вручную:</span>
+                        <code class="secret">{{ secret }}</code>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="totp-step">
+            <span class="totp-n">3</span>
+            <form method="post" action="/settings/totp/enable" class="totp-body">
+                <div class="totp-h" style="margin-bottom:14px" data-i18n="totp3h">Подтверждение</div>
+                <input type="text" name="code" class="otp-input" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="000000" required autofocus
+                       style="width:100%;padding:13px 15px;border-radius:12px;background:var(--bg2);border:1px solid var(--border);color:var(--text);outline:none;margin-bottom:14px">
+                <button type="submit" class="btn btn-primary btn-block" data-i18n="totp3btn">Подтвердить и включить</button>
+            </form>
+        </div>
+    </div>
 </div>
 {% endblock %}

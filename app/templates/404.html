@@ -1,5 +1,6 @@
-{% extends "base.html" %}
+{% extends "app.html" %}
+{% set page_kicker = 'Ошибка' %}{% set page_kicker_key = 'nf_kicker' %}
+{% set page_title = 'Страница не найдена' %}{% set page_title_key = 'nf_title' %}
 {% block title %}Не найдено — TG Recovery{% endblock %}
-{% block content %}
-<div class="empty"><div class="empty-badge">🔍</div><h2>Страница не найдена</h2><p>Такой страницы нет или она была удалена.</p><a href="/" class="btn btn-primary">На главную</a></div>
-{% endblock %}
+
+{% block content %}{% include "_404_body.html" %}{% endblock %}

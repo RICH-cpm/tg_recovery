@@ -5,7 +5,7 @@ from urllib.parse import quote
 import qrcode
 from fastapi import APIRouter, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
-from ..templating import templates
+from ..templating import templates, nav_stats
 from ..auth import get_current_user, get_client_ip, set_session_cookie, bump_session_epoch
 from ..crypto import hash_password, verify_password, generate_totp_secret, get_totp_uri, verify_totp
 from ..database import fetch_one, fetch_all, execute, log_action, get_setting, set_setting
@@ -51,7 +51,8 @@ async def settings_page(request: Request, message: str = None, error: str = None
     }
     return templates.TemplateResponse(
         request, "settings.html",
-        {"user": user, "full_user": fu, "accounts": accounts, "backup": backup, "message": message, "error": error},
+        {"user": user, "full_user": fu, "accounts": accounts, "backup": backup,
+         "message": message, "error": error, "nav": "settings", **await nav_stats(user)},
     )
 
 
@@ -168,7 +169,8 @@ async def totp_setup(request: Request, error: str = None):
     qr.make_image(fill_color="#111", back_color="white").save(buf, format="PNG")
     return templates.TemplateResponse(
         request, "totp_setup.html",
-        {"user": user, "secret": secret, "qr_base64": base64.b64encode(buf.getvalue()).decode(), "error": error},
+        {"user": user, "secret": secret, "qr_base64": base64.b64encode(buf.getvalue()).decode(),
+         "error": error, "nav": "settings", **await nav_stats(user)},
     )
 
 
@@ -214,4 +216,7 @@ async def audit_page(request: Request):
          ORDER BY created_at DESC, id DESC LIMIT 200""",
         (user["id"], f"username={user['username']}"),
     )
-    return templates.TemplateResponse(request, "audit.html", {"user": user, "logs": logs})
+    return templates.TemplateResponse(
+        request, "audit.html",
+        {"user": user, "logs": logs, "nav": "audit", **await nav_stats(user)},
+    )

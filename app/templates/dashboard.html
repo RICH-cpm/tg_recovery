@@ -1,27 +1,107 @@
-{% extends "base.html" %}
+{% extends "app.html" %}
+{% import "_icons.html" as i %}
+{% set page_kicker = 'Обзор' %}{% set page_kicker_key = 'dash_kicker' %}
+{% set page_title = 'Аккаунты' %}{% set page_title_key = 'dash_title' %}
 {% block title %}Аккаунты — TG Recovery{% endblock %}
+
+{% block topbar_extra %}
+<label class="search hide-mobile">
+    {{ i.ico('search', 16, 1.8) }}
+    <input type="search" id="account-search" data-i18n-placeholder="search_ph" placeholder="Поиск аккаунтов…" autocomplete="off">
+</label>
+{% endblock %}
+
 {% block content %}
 <div class="head">
-    <div><div class="eyebrow">Обзор</div><h1 class="title">Аккаунты</h1><p class="subtitle">Коды авторизации Telegram приходят сюда автоматически.</p></div>
-    <div class="head-actions"><a href="/accounts/add" class="btn btn-primary">Добавить аккаунт</a></div>
+    <div>
+        <div class="kicker" data-i18n="dash_kicker">Обзор</div>
+        <h1 class="page-title" data-i18n="dash_title">Аккаунты</h1>
+        <p class="page-sub" data-i18n="dash_sub">Коды авторизации Telegram приходят сюда автоматически.</p>
+    </div>
+    <a href="/accounts/add" class="btn btn-primary">{{ i.ico('plus', 17, 2) }}<span data-i18n="add_account">Добавить аккаунт</span></a>
 </div>
+
 {% if accounts %}
-<div class="status-strip">
-    <div class="stat"><div class="stat-num">{{ accounts|length }}</div><div class="stat-label">всего аккаунтов</div></div>
-    <div class="stat"><div class="stat-num live">{{ connected }}</div><div class="stat-label">подключено</div></div>
-    <div class="stat"><div class="stat-num">{{ unread_total }}</div><div class="stat-label">новых кодов</div></div>
+<div class="stats">
+    <div class="stat" data-stag>
+        <div class="stat-label">{{ i.ico('card', 15, 1.8) }}<span data-i18n="stat_total">всего аккаунтов</span></div>
+        <div class="stat-num">{{ accounts | length }}</div>
+    </div>
+    <div class="stat" data-stag>
+        <div class="stat-label"><span class="pill-dot" style="background:var(--ok);box-shadow:0 0 8px var(--ok-glow);width:8px;height:8px"></span><span data-i18n="stat_connected">подключено</span></div>
+        <div class="stat-num ok">{{ connected }}</div>
+    </div>
+    <div class="stat stat-accent" data-stag>
+        <div class="stat-label" style="color:var(--accent)">{{ i.ico('mail', 15, 1.8) }}<span data-i18n="stat_codes" style="color:var(--text3)">новых кодов</span></div>
+        <div class="stat-num accent">{{ unread_total }}</div>
+    </div>
 </div>
-<div class="grid">
+
+<div class="grid" id="account-grid">
     {% for account in accounts %}
-    <a href="/account/{{ account.id }}" class="card">
-        <div class="card-top"><span class="card-name">{{ account.display_name }}</span><span class="pill {% if account.is_connected %}pill-on{% else %}pill-off{% endif %}">{% if account.is_connected %}подключён{% else %}не в сети{% endif %}</span></div>
-        <span class="card-phone">{{ account.phone_number }}</span>
-        <div class="card-meta">{% if account.unread_count and account.unread_count > 0 %}<span class="badge-new">{{ account.unread_count }} новых</span>{% endif %}{% if account.last_code_at %}<span>код · <span class="time-ago" data-time="{{ account.last_code_at }}">{{ account.last_code_at }}</span></span>{% else %}<span>кодов пока нет</span>{% endif %}</div>
+    <a href="/account/{{ account.id }}" class="card" data-stag data-name="{{ account.display_name | lower }}" data-phone="{{ account.phone_number }}">
+        <div class="card-top">
+            <span class="ava">{{ account.display_name | initials }}<span class="ava-dot {% if account.is_connected %}on{% endif %}"></span></span>
+            <div class="card-id">
+                <div class="card-name">{{ account.display_name }}</div>
+                <div class="card-phone">{{ account.phone_number | mask_phone }}</div>
+            </div>
+        </div>
+        <div class="card-rule"></div>
+        <div class="card-row">
+            <span class="pill {% if account.is_connected %}pill-on{% endif %}">
+                <span class="pill-dot"></span>
+                {% if account.is_connected %}<span data-i18n="card_connected">подключён</span>{% else %}<span data-i18n="card_offline">не в сети</span>{% endif %}
+            </span>
+            {% if account.unread_count %}<span class="badge-new">{{ account.unread_count }} <span data-i18n="new_suffix">новых</span></span>{% endif %}
+        </div>
+        <div class="card-meta">
+            {{ i.ico('clock', 13, 1.8) }}
+            {% if account.last_code_at %}
+            <span><span data-i18n="card_last">последний код</span> · <span class="time-ago" data-time="{{ account.last_code_at }}">{{ account.last_code_at }}</span></span>
+            {% else %}
+            <span data-i18n="card_nocodes">кодов пока нет</span>
+            {% endif %}
+        </div>
     </a>
     {% endfor %}
 </div>
+<div class="empty" id="search-empty" hidden>
+    <h2 data-i18n="search_empty_title">Ничего не найдено</h2>
+    <p data-i18n="search_empty_sub">Попробуйте изменить запрос.</p>
+</div>
 {% else %}
-<div class="empty"><div class="empty-badge">📱</div><h2>Пока нет аккаунтов</h2><p>Добавьте первый Telegram-аккаунт, чтобы принимать резервные коды авторизации.</p><a href="/accounts/add" class="btn btn-primary">Добавить аккаунт</a></div>
+<div class="empty">
+    <div class="empty-orb">
+        <div class="ring"></div>
+        <div class="ring-dash"></div>
+        <div class="core" style="color:var(--accent)">{{ i.ico('shield-plus', 26, 1.6) }}</div>
+    </div>
+    <h2 data-i18n="empty_acc_title">Пока нет аккаунтов</h2>
+    <p data-i18n="empty_acc_sub">Добавьте первый Telegram-аккаунт, чтобы принимать резервные коды авторизации.</p>
+    <a href="/accounts/add" class="btn btn-primary">{{ i.ico('plus', 17, 2) }}<span data-i18n="add_account">Добавить аккаунт</span></a>
+</div>
 {% endif %}
 {% endblock %}
-{% block scripts %}<script src="/static/js/time.js"></script>{% endblock %}
+
+{% block scripts %}
+<script>
+/* Поиск по карточкам — целиком на клиенте, запросов к серверу не делает. */
+(function () {
+    var input = document.getElementById('account-search');
+    var grid = document.getElementById('account-grid');
+    var empty = document.getElementById('search-empty');
+    if (!input || !grid) return;
+    input.addEventListener('input', function () {
+        var q = input.value.trim().toLowerCase();
+        var shown = 0;
+        grid.querySelectorAll('.card').forEach(function (card) {
+            var hit = !q || card.dataset.name.indexOf(q) >= 0 || card.dataset.phone.indexOf(q) >= 0;
+            card.hidden = !hit;
+            if (hit) shown++;
+        });
+        if (empty) empty.hidden = shown > 0;
+    });
+})();
+</script>
+{% endblock %}

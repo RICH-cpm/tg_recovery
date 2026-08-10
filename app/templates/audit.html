@@ -1,23 +1,47 @@
-{% extends "base.html" %}
+{% extends "app.html" %}
+{% import "_icons.html" as i %}
+{% set page_kicker = 'История' %}{% set page_kicker_key = 'aud_kicker' %}
+{% set page_title = 'Журнал действий' %}{% set page_title_key = 'aud_title' %}
 {% block title %}Журнал — TG Recovery{% endblock %}
+
+{% set good = ['login_success', 'account_added', 'totp_enabled', 'username_changed', 'password_changed', 'backup_manual', 'twofa_saved', 'account_add_phone'] %}
+{% set bad = ['login_failed', 'login_failed_totp', 'account_removed', 'accounts_bulk_removed', 'totp_disabled', 'twofa_removed'] %}
+{% set warn = ['logout', 'sessions_revoked', 'twofa_revealed', 'backup_settings_changed'] %}
+
 {% block content %}
-<div class="head"><div><div class="eyebrow">История</div><h1 class="title">Журнал действий</h1><p class="subtitle">Последние 200 событий учётной записи.</p></div></div>
-{% if logs %}
-<div class="table-wrap">
-    <table class="audit">
-        <thead><tr><th>Время</th><th>Действие</th><th>Детали</th><th>IP</th></tr></thead>
-        <tbody>
-            {% for log in logs %}
-            <tr>
-                <td><span class="time-ago" data-time="{{ log.created_at }}">{{ log.created_at }}</span></td>
-                <td>{% set a = log.action %}<span class="act {% if a in ['login_success','account_added','totp_enabled','username_changed','password_changed','backup_manual','twofa_saved'] %}ok{% elif a in ['login_failed','login_failed_totp','account_removed','accounts_bulk_removed','totp_disabled','twofa_removed'] %}bad{% elif a in ['logout','sessions_revoked'] %}warn{% endif %}">{{ a }}</span></td>
-                <td>{{ log.details or '—' }}</td>
-                <td>{{ log.ip_address or '—' }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+<div data-stag style="margin-bottom:20px">
+    <div class="kicker" data-i18n="aud_kicker">История</div>
+    <h1 class="page-title" data-i18n="aud_title">Журнал действий</h1>
+    <p class="page-sub" data-i18n="aud_sub">Последние события учётной записи.</p>
 </div>
-{% else %}<div class="empty"><div class="empty-badge">📋</div><h2>Журнал пуст</h2><p>Здесь появятся все действия в вашей учётной записи.</p></div>{% endif %}
+
+{% if logs %}
+<div class="log-table" data-stag>
+    <div class="log-head">
+        <span data-i18n="col_time">Время</span>
+        <span><span data-i18n="col_action">Действие</span> · <span data-i18n="col_details">Детали</span></span>
+        <span style="text-align:right" data-i18n="col_ip">IP</span>
+    </div>
+    {% for log in logs %}
+    <div class="log-row">
+        <span class="log-time time-ago" data-time="{{ log.created_at }}">{{ log.created_at }}</span>
+        <div class="log-mid">
+            <span class="log-chip {% if log.action in good %}ok{% elif log.action in bad %}bad{% elif log.action in warn %}warn{% endif %}">{{ log.action }}</span>
+            <span class="log-details">{{ log.details or '—' }}</span>
+        </div>
+        <span class="log-ip">{{ log.ip_address or '—' }}</span>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty">
+    <div class="empty-orb">
+        <div class="ring"></div>
+        <div class="ring-dash"></div>
+        <div class="core" style="color:var(--accent)">{{ i.ico('clock', 26, 1.6) }}</div>
+    </div>
+    <h2 data-i18n="empty_log_title">Журнал пуст</h2>
+    <p data-i18n="empty_log_sub">Здесь появятся все действия в вашей учётной записи.</p>
+</div>
+{% endif %}
 {% endblock %}
-{% block scripts %}<script src="/static/js/time.js"></script>{% endblock %}

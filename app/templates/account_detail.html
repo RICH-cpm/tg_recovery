@@ -1,99 +1,170 @@
-{% extends "base.html" %}
+{% extends "app.html" %}
+{% import "_icons.html" as i %}
+{% set page_kicker = 'Аккаунт' %}{% set page_kicker_key = 'acc_kicker' %}
+{% set page_title = account.display_name %}
 {% block title %}{{ account.display_name }} — TG Recovery{% endblock %}
+
 {% block content %}
-<div class="head">
-    <div>
-        <a href="/" class="back-link">← Аккаунты</a>
-        {% set p = account.phone_number %}
-        <div class="eyebrow phone-line">
-            <span class="phone-mask" data-full="{{ p }}" data-mask="{% if p|length > 5 %}{{ p[:2] }}{{ '•' * (p|length - 4) }}{{ p[-2:] }}{% else %}••••{% endif %}">{% if p|length > 5 %}{{ p[:2] }}{{ '•' * (p|length - 4) }}{{ p[-2:] }}{% else %}••••{% endif %}</span>
-            <button type="button" class="phone-eye" onclick="togglePhone(this)">показать</button>
+<a href="/" class="back-link" data-stag>{{ i.ico('arrow-left', 15, 2) }}<span data-i18n="nav_accounts">Аккаунты</span></a>
+
+<div class="acc-head" data-stag>
+    <div class="acc-id">
+        <span class="ava ava-lg">{{ account.display_name | initials }}<span class="ava-dot {% if account.is_connected %}on{% endif %}"></span></span>
+        <div style="min-width:0">
+            <h1 class="acc-title">{{ account.display_name }}</h1>
+            <div class="acc-line">
+                <span class="acc-phone" id="phone" data-full="{{ account.phone_number }}" data-mask="{{ account.phone_number | mask_phone }}">{{ account.phone_number | mask_phone }}</span>
+                <button type="button" class="phone-eye" id="phone-eye" data-i18n="show">показать</button>
+                <span class="pill {% if account.is_connected %}pill-on{% endif %}" style="font-size:12px;padding:4px 10px">
+                    <span class="pill-dot"></span>
+                    {% if account.is_connected %}<span data-i18n="card_connected">подключён</span>{% else %}<span data-i18n="card_offline">не в сети</span>{% endif %}
+                </span>
+            </div>
         </div>
-        <h1 class="title">{{ account.display_name }}</h1>
-        <p class="subtitle"><span class="pill {% if account.is_connected %}pill-on{% else %}pill-off{% endif %}">{% if account.is_connected %}подключён{% else %}не в сети{% endif %}</span></p>
     </div>
-    <div class="head-actions">
-        {% if not account.is_connected %}<form action="/accounts/{{ account.id }}/reconnect" method="post" class="inline-form"><button type="submit" class="btn btn-ghost">Переподключить</button></form>{% endif %}
-        <form action="/accounts/{{ account.id }}/delete" method="post" class="inline-form" onsubmit="return confirm('Удалить «{{ account.display_name }}»? Сессия будет деавторизована, история кодов удалена.')"><button type="submit" class="btn btn-danger">Удалить</button></form>
+    <div class="acc-actions">
+        {% if not account.is_connected %}
+        <form action="/accounts/{{ account.id }}/reconnect" method="post" class="inline-form">
+            <button type="submit" class="btn btn-ghost btn-sm">{{ i.ico('refresh', 16, 1.8) }}<span data-i18n="reconnect">Переподключить</span></button>
+        </form>
+        {% endif %}
+        <form action="/accounts/{{ account.id }}/delete" method="post" class="inline-form"
+              onsubmit="return confirm('Удалить «{{ account.display_name }}»? Сессия будет деавторизована, история кодов удалена.')">
+            <button type="submit" class="btn btn-danger btn-sm">{{ i.ico('trash', 16, 1.8) }}<span data-i18n="del">Удалить</span></button>
+        </form>
     </div>
 </div>
 
-<div class="panel">
-    <div class="panel-title">Облачный пароль (2FA)</div>
-    <div class="panel-desc">пароль двухэтапной проверки аккаунта · хранится в зашифрованном виде</div>
+<div class="panel" data-stag style="margin-bottom:22px">
+    <div class="panel-head">
+        <span class="panel-ico">{{ i.ico('lock', 18) }}</span>
+        <div style="min-width:0">
+            <div class="panel-title" data-i18n="twofa_title">Облачный пароль (2FA)</div>
+            <div class="panel-desc" style="margin-bottom:0" data-i18n="twofa_desc">пароль двухэтапной проверки · хранится в зашифрованном виде</div>
+        </div>
+    </div>
+
     {% if account.twofa_enc %}
     <div class="twofa-box">
         <span class="twofa-val" id="twofa-val">••••••••</span>
         <div class="twofa-actions">
-            <button class="copy-btn" id="twofa-reveal" onclick="revealTwofa()">Показать</button>
-            <button class="copy-btn" onclick="copyTwofa(this)">Копировать</button>
+            <button type="button" class="chip-btn" id="twofa-reveal" data-i18n="reveal">Показать</button>
+            <button type="button" class="chip-btn accent" id="twofa-copy" data-i18n="copy">Копировать</button>
         </div>
     </div>
-    <form method="post" action="/accounts/{{ account.id }}/twofa/delete" onsubmit="return confirm('Удалить сохранённый пароль?')"><button type="submit" class="link-btn">Удалить сохранённый пароль</button></form>
+    <form method="post" action="/accounts/{{ account.id }}/twofa/delete" style="margin-top:14px"
+          onsubmit="return confirm('Удалить сохранённый пароль?')">
+        <button type="submit" class="link-btn" data-i18n="twofa_forget">Удалить сохранённый пароль</button>
+    </form>
     {% else %}
-    <div class="note muted">Пароль не сохранён. Сайт не может его перехватить — Telegram не передаёт его в сообщениях. Сохраните вручную, чтобы не забыть.</div>
-    <form method="post" action="/accounts/{{ account.id }}/twofa/save" class="form">
-        <div class="field"><label for="twofa_password">Облачный пароль</label><input type="password" id="twofa_password" name="twofa_password" required></div>
-        <button type="submit" class="btn btn-ghost">Сохранить</button>
+    <div class="note" data-i18n="twofa_none">Пароль не сохранён. Telegram не передаёт его в сообщениях — сохраните вручную, чтобы не забыть.</div>
+    <form method="post" action="/accounts/{{ account.id }}/twofa/save" class="form" style="margin-top:16px">
+        <label class="field">
+            <span class="field-label" data-i18n="twofa_field">Облачный пароль</span>
+            <input type="password" name="twofa_password" required>
+        </label>
+        <button type="submit" class="btn btn-ghost">{{ i.ico('save', 16, 1.8) }}<span data-i18n="save">Сохранить</span></button>
     </form>
     {% endif %}
 </div>
 
-<div class="codes" id="codes" data-latest-id="{{ codes[0].id if codes else 0 }}">
-    {% if codes %}
-        {% for code in codes %}
-        <div class="code-card {% if loop.first %}fresh{% endif %}">
-            <div class="code-row">
-                <div>
-                    <div class="code-sig">{% if loop.first %}новый код{% else %}код{% endif %}</div>
-                    <div class="code-main">{% if code.code %}<span class="code-digits">{{ code.code }}</span><button class="copy-btn" onclick="tgCopy('{{ code.code }}', this, '✓ Скопировано')">Копировать</button>{% else %}<span class="code-nodigit">сообщение без кода</span>{% endif %}</div>
+{% if codes %}
+<div class="codes" id="codes" data-latest-id="{{ codes[0].id }}">
+    {% for code in codes %}
+    <div class="code-card {% if loop.first and code.code %}fresh{% endif %}" data-stag>
+        {% if loop.first and code.code %}<span class="code-sweep" aria-hidden="true"></span>{% endif %}
+        <div class="code-row">
+            <div style="min-width:0">
+                <div class="code-sig">{% if loop.first and code.code %}<span data-i18n="code_new">новый код</span>{% else %}<span data-i18n="code_word">код</span>{% endif %}</div>
+                <div class="code-main">
+                    {% if code.code %}
+                    <span class="code-digits">{{ code.code }}</span>
+                    <button type="button" class="copy-btn" data-copy="{{ code.code }}" data-i18n="copy">Копировать</button>
+                    {% else %}
+                    <span class="code-nodigit" data-i18n="code_nodigit">сообщение без кода</span>
+                    {% endif %}
                 </div>
-                <span class="code-time time-ago" data-time="{{ code.received_at }}">{{ code.received_at }}</span>
             </div>
-            <details class="code-details"><summary>Полный текст</summary><pre class="code-full">{{ code.full_text }}</pre></details>
+            <span class="code-time time-ago" data-time="{{ code.received_at }}">{{ code.received_at }}</span>
         </div>
-        {% endfor %}
-    {% else %}
-    <div class="empty"><div class="empty-badge">📭</div><h2>Кодов пока нет</h2><p>Как только на этот аккаунт придёт код от Telegram, он появится здесь.</p></div>
-    {% endif %}
+        <details class="code-details">
+            <summary>{{ i.ico('chevron', 13, 2) }}<span data-i18n="code_full">Полный текст</span></summary>
+            <pre class="code-full">{{ code.full_text }}</pre>
+        </details>
+    </div>
+    {% endfor %}
 </div>
-
-<div class="live-tag"><span class="live-dot"></span>Обновляется автоматически</div>
+<div class="live-tag">
+    <span class="live-dot"></span><span data-i18n="live_updates">Обновляется автоматически</span>
+</div>
+{% else %}
+<div class="empty" id="codes" data-latest-id="0">
+    <div class="empty-orb" style="width:92px;height:92px">
+        <div class="ring-dash" style="inset:0"></div>
+        <div class="core" style="width:48px;height:48px;border-radius:15px;color:var(--accent)">{{ i.ico('mail', 23, 1.6) }}</div>
+    </div>
+    <h2 data-i18n="empty_codes_title">Кодов пока нет</h2>
+    <p data-i18n="empty_codes_sub">Как только на этот аккаунт придёт код от Telegram, он появится здесь.</p>
+</div>
+{% endif %}
 {% endblock %}
+
 {% block scripts %}
-<script src="/static/js/time.js"></script>
 <script>
-const ACCOUNT_ID = {{ account.id }};
-function togglePhone(btn){
-    const el = btn.parentElement.querySelector('.phone-mask');
-    if(el.dataset.shown === '1'){ el.textContent = el.dataset.mask; el.dataset.shown=''; btn.textContent='показать'; }
-    else { el.textContent = el.dataset.full; el.dataset.shown='1'; btn.textContent='скрыть'; }
-}
-let twofaValue = null;
-async function loadTwofa(){
-    if(twofaValue !== null) return twofaValue;
-    const r = await fetch('/api/account/' + ACCOUNT_ID + '/twofa');
-    if(!r.ok) return '';
-    const d = await r.json(); twofaValue = d.has ? d.value : ''; return twofaValue;
-}
-async function revealTwofa(){
-    const el = document.getElementById('twofa-val'), btn = document.getElementById('twofa-reveal');
-    if(el.dataset.shown === '1'){ el.textContent='••••••••'; el.dataset.shown=''; btn.textContent='Показать'; return; }
-    const v = await loadTwofa(); el.textContent = v || '—'; el.dataset.shown='1'; btn.textContent='Скрыть';
-}
-async function copyTwofa(btn){ const v = await loadTwofa(); if(v) tgCopy(v, btn, '✓ Скопировано'); }
-// Сравниваем по id, а не по тексту: два одинаковых сообщения подряд
-// (Telegram присылает их регулярно) иначе не считались бы новым кодом.
-let latestId = parseInt(document.getElementById('codes').dataset.latestId || '0', 10) || 0;
-async function refresh(){
-    try{
-        const r = await fetch('/api/account/' + ACCOUNT_ID + '/codes');
-        if(r.status === 401){ location.href = '/login'; return; }
-        if(!r.ok) return;
-        const data = await r.json();
-        if(data.codes.length > 0 && data.codes[0].id > latestId) location.reload();
-    }catch(e){}
-}
-setInterval(refresh, 5000);
+(function () {
+    var ACCOUNT_ID = {{ account.id }};
+
+    /* показать/скрыть телефон */
+    var phone = document.getElementById('phone'), eye = document.getElementById('phone-eye');
+    if (eye) eye.addEventListener('click', function () {
+        var shown = phone.dataset.shown === '1';
+        phone.textContent = shown ? phone.dataset.mask : phone.dataset.full;
+        phone.dataset.shown = shown ? '' : '1';
+        eye.dataset.i18n = shown ? 'show' : 'hide';
+        eye.textContent = window.tgT ? window.tgT(eye.dataset.i18n) : (shown ? 'показать' : 'скрыть');
+    });
+
+    /* облачный пароль подтягиваем только по требованию — он не лежит в HTML */
+    var twofaValue = null;
+    async function loadTwofa() {
+        if (twofaValue !== null) return twofaValue;
+        var r = await fetch('/api/account/' + ACCOUNT_ID + '/twofa');
+        if (!r.ok) return '';
+        var d = await r.json();
+        twofaValue = d.has ? d.value : '';
+        return twofaValue;
+    }
+    var val = document.getElementById('twofa-val'), reveal = document.getElementById('twofa-reveal');
+    if (reveal) reveal.addEventListener('click', async function () {
+        if (val.dataset.shown === '1') {
+            val.textContent = '••••••••'; val.dataset.shown = '';
+            reveal.dataset.i18n = 'reveal';
+            reveal.textContent = window.tgT ? window.tgT('reveal') : 'Показать';
+            return;
+        }
+        var v = await loadTwofa();
+        val.textContent = v || '—'; val.dataset.shown = '1';
+        reveal.dataset.i18n = 'hide_btn';
+        reveal.textContent = window.tgT ? window.tgT('hide_btn') : 'Скрыть';
+    });
+    var copyBtn = document.getElementById('twofa-copy');
+    if (copyBtn) copyBtn.addEventListener('click', async function () {
+        var v = await loadTwofa();
+        if (v) window.tgCopy(v, copyBtn);
+    });
+
+    /* Сравниваем по id, а не по тексту: два одинаковых сообщения подряд
+       (Telegram присылает их регулярно) иначе не считались бы новым кодом. */
+    var latestId = parseInt((document.getElementById('codes') || {}).dataset.latestId || '0', 10) || 0;
+    setInterval(async function () {
+        try {
+            var r = await fetch('/api/account/' + ACCOUNT_ID + '/codes');
+            if (r.status === 401) { location.href = '/login'; return; }
+            if (!r.ok) return;
+            var data = await r.json();
+            if (data.codes.length > 0 && data.codes[0].id > latestId) location.reload();
+        } catch (e) {}
+    }, 5000);
+})();
 </script>
 {% endblock %}
