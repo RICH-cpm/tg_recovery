@@ -9,25 +9,50 @@ from .utils import utcnow, utcnow_iso
 _s = URLSafeTimedSerializer(config.SECRET_KEY, salt="tg-recovery-session")
 
 
-def create_session_token(uid, uname, epoch=0):
-    return _s.dumps({"user_id": uid, "username": uname, "epoch": epoch})
+def create_session_token(uid, uname, epoch=0, issued_at=None):
+    """issued_at — момент настоящего входа.
+
+    Он переносится при каждом продлении, поэтому скользящее окно простоя не
+    может продлевать сессию бесконечно: SESSION_MAX_AGE считается от входа.
+    """
+    return _s.dumps({
+        "user_id": uid,
+        "username": uname,
+        "epoch": epoch,
+        "iat": int(issued_at if issued_at is not None else utcnow().timestamp()),
+    })
 
 
 def verify_session_token(t):
+    """Проверяет подпись и простой. Метка времени внутри токена обновляется
+    при каждом запросе, поэтому max_age здесь — именно таймаут бездействия."""
     try:
-        return _s.loads(t, max_age=config.SESSION_MAX_AGE)
+        data = _s.loads(t, max_age=config.SESSION_IDLE_TIMEOUT)
     except (BadSignature, SignatureExpired):
         return None
     except Exception:
         return None
+    if not isinstance(data, dict) or "user_id" not in data:
+        return None
+    # Абсолютный предел от момента входа.
+    iat = data.get("iat")
+    if iat is not None and utcnow().timestamp() - iat > config.SESSION_MAX_AGE:
+        return None
+    return data
 
 
-def set_session_cookie(resp, uid, uname, epoch=0):
-    """Единая точка выдачи cookie сессии — чтобы флаги нигде не разъезжались."""
+def set_session_cookie(resp, uid, uname, epoch=0, issued_at=None):
+    """Единая точка выдачи cookie сессии — чтобы флаги нигде не разъезжались.
+
+    max_age и expires намеренно не задаются: cookie становится сеансовой и
+    исчезает вместе с закрытием браузера. Раньше она жила 8 часов на диске,
+    и после закрытия вкладки любой на том же устройстве попадал в панель
+    без пароля. Браузеры с восстановлением вкладок могут сеансовую cookie
+    вернуть — от этого страхует таймаут бездействия в самом токене.
+    """
     resp.set_cookie(
         key=config.SESSION_COOKIE_NAME,
-        value=create_session_token(uid, uname, epoch),
-        max_age=config.SESSION_MAX_AGE,
+        value=create_session_token(uid, uname, epoch, issued_at),
         httponly=True,
         secure=config.COOKIE_SECURE,
         samesite="lax",
@@ -91,11 +116,18 @@ async def get_current_user(request):
     t = request.cookies.get(config.SESSION_COOKIE_NAME)
     if not t: return None
     data = verify_session_token(t)
-    if not isinstance(data, dict) or "user_id" not in data: return None
+    if not data: return None
     u = await fetch_one("SELECT id, username, totp_enabled, is_admin, session_epoch FROM users WHERE id = ?", (data["user_id"],))
     if not u: return None
     if data.get("epoch", 0) != (u.get("session_epoch") or 0): return None
+    u["session_iat"] = data.get("iat")
     return u
+
+
+async def require_admin(request):
+    """Пользователь с правами администратора или None."""
+    user = await get_current_user(request)
+    return user if user and user.get("is_admin") else None
 
 
 async def bump_session_epoch(user_id):

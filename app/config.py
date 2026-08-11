@@ -47,7 +47,11 @@ class Config:
     LOGIN_RATE_LIMIT = _env_int("LOGIN_RATE_LIMIT", 5)
     LOGIN_RATE_WINDOW_MIN = _env_int("LOGIN_RATE_WINDOW_MIN", 1)
     SESSION_COOKIE_NAME = "tg_recovery_session"
+    # Предельный срок жизни сессии от момента входа — дальше только новый вход.
     SESSION_MAX_AGE = _env_int("SESSION_MAX_AGE", 60 * 60 * 8)
+    # Простой без действий, после которого сессия считается протухшей.
+    # Окно скользящее: каждый запрос продлевает его.
+    SESSION_IDLE_TIMEOUT = _env_int("SESSION_IDLE_TIMEOUT", 30 * 60)
     TELEGRAM_SERVICE_ID = 777000
     # Незавершённое добавление аккаунта живёт столько секунд, потом клиент отключается.
     PENDING_AUTH_TTL = _env_int("PENDING_AUTH_TTL", 15 * 60)

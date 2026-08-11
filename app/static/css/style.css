@@ -161,6 +161,9 @@ h1, h2, h3 { font-family: var(--font-display); font-weight: 600; letter-spacing:
 .nav-link svg { flex: none; }
 .nav-mark { position: absolute; left: -15px; top: 50%; transform: translateY(-50%); width: 3px; height: 18px; border-radius: 0 2px 2px 0; background: var(--accent); box-shadow: 0 0 10px var(--glow); }
 .nav-badge { margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 7px; display: grid; place-items: center; background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; }
+/* Выход в меню нужен только там, где скрыт боковой блок с пользователем. */
+.nav-logout { display: none; }
+.nav-logout .nav-link { width: 100%; }
 
 .sidebar-spacer { flex: 1; }
 
@@ -289,7 +292,17 @@ h1, h2, h3 { font-family: var(--font-display); font-weight: 600; letter-spacing:
 .kv-k { color: var(--text3); font-size: 13px; }
 .kv-v { font-weight: 600; font-size: 13.5px; text-align: right; }
 
-.settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; align-items: start; }
+/* Раскладка настроек колонками, а не grid-сеткой: в сетке строка тянулась
+   по самой высокой карточке, и под низкими зияли пустоты в пол-экрана.
+   Колонки упаковывают карточки вплотную по вертикали. */
+.settings-grid { column-count: 3; column-gap: 14px; }
+.settings-grid > .panel { break-inside: avoid; margin: 0 0 14px; }
+/* Широкие блоки (пользователи) живут отдельным рядом под колонками:
+   column-span в связке с колонками ведёт себя нестабильно и рвёт карточку. */
+.panel-wide { margin-top: 0; }
+
+@media (max-width: 1280px) { .settings-grid { column-count: 2; } }
+@media (max-width: 760px) { .settings-grid { column-count: 1; } }
 
 /* --------------------------------------------------------------- статы */
 .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 24px; }
@@ -465,29 +478,77 @@ h1, h2, h3 { font-family: var(--font-display); font-weight: 600; letter-spacing:
 .acc-item-phone { font-family: var(--font-mono); font-size: 12px; color: var(--text3); white-space: nowrap; }
 .acc-item .pill { flex: none; white-space: nowrap; }
 
+/* ---------------------------------------------- пользователи (админ) */
+.user-list { display: flex; flex-direction: column; gap: 8px; }
+.user-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 14px; border-radius: 12px; background: var(--bg2); border: 1px solid var(--border); }
+.user-main { flex: 1; min-width: 0; }
+.user-name { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-weight: 600; font-size: 14px; }
+.user-meta { margin-top: 3px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; color: var(--text3); font-size: 12px; }
+.tag { padding: 2px 8px; border-radius: 6px; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; background: var(--surface2); color: var(--text3); }
+.tag-admin { background: var(--a1); color: var(--accent); }
+.tag-ok { background: var(--ok-soft); color: var(--ok); }
+.user-actions { flex: none; }
+.user-actions > summary { display: inline-block; }
+.user-actions[open] > summary { margin-bottom: 12px; }
+.user-panel { flex-basis: 100%; width: 100%; padding: 14px; border-radius: 11px; background: var(--surface); border: 1px solid var(--border); }
+/* Форма добавления раскладывается по ширине панели, а не жмётся в столбик. */
+.user-create { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px 14px; align-items: end; }
+.user-create .field { min-width: 0; }
+.user-create .acc-item { min-width: 0; }
+
 /* ------------------------------------------------------------ адаптив */
 @media (max-width: 880px) {
     .app { grid-template-columns: 1fr; }
     .sidebar {
         position: fixed; bottom: 0; left: 0; right: 0; top: auto; height: auto;
-        flex-direction: row; align-items: center; gap: 4px;
-        padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+        flex-direction: row; align-items: stretch; gap: 0;
+        padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
         border-right: none; border-top: 1px solid var(--border);
         box-shadow: 0 -14px 30px -20px rgba(0, 0, 0, .5);
-        overflow-x: auto; z-index: 40;
+        z-index: 40;
     }
     .hide-mobile { display: none !important; }
-    .content { padding-bottom: 96px; }
+    .content { padding-bottom: calc(84px + env(safe-area-inset-bottom)); }
     .auth-left { display: none; }
-    .nav { flex-direction: row; width: 100%; justify-content: space-around; }
-    .nav-link { flex-direction: column; gap: 3px; padding: 6px 10px; font-size: 10px; }
-    .nav-link span:not(.nav-badge) { font-size: 10px; }
+    .auth-right { flex: 1; }
+
+    /* Нижняя панель: все пункты равной ширины, включая выход. */
+    .nav { flex-direction: row; width: 100%; gap: 0; }
+    .nav-logout { display: flex; flex: 1; }
+    .nav-logout .nav-link { color: var(--danger); }
+    .nav-link { flex: 1; flex-direction: column; justify-content: center; gap: 3px; padding: 7px 4px; font-size: 10px; border-radius: 10px; text-align: center; }
+    .nav-link > span:not(.nav-badge) { font-size: 10px; line-height: 1.1; }
     .nav-mark { display: none; }
+    /* Значок новых кодов на мобильном — точкой поверх иконки. */
+    .nav-badge { position: absolute; top: 3px; right: 50%; margin-right: -18px; min-width: 16px; height: 16px; padding: 0 4px; font-size: 10px; }
+
+    .topbar { padding: 12px 16px; gap: 10px; }
+    .topbar-title { font-size: 15px; }
+    .content { padding-left: 16px; padding-right: 16px; }
     .stats { grid-template-columns: 1fr; }
-    .settings-grid { grid-template-columns: 1fr; }
+    .settings-grid { column-count: 1; }
     .log-head { display: none; }
     .log-row { grid-template-columns: 1fr auto; gap: 6px 10px; }
     .log-time { grid-column: 1 / -1; order: -1; }
     .log-ip { text-align: left; }
     .search { min-width: 0; }
+    .head { gap: 14px; }
+    .head .btn { width: 100%; }
+    .acc-head { gap: 14px; }
+    .acc-actions { width: 100%; }
+    .acc-actions .inline-form, .acc-actions .btn { flex: 1; width: 100%; }
+    .user-actions, .user-actions > summary { width: 100%; }
+    .user-actions > summary { text-align: center; }
+    .user-create { grid-template-columns: 1fr; }
+    .panel-wide { padding: 18px 14px; }
+    .empty { padding: 40px 18px; }
+    .code-digits { letter-spacing: 4px; }
+    .twofa-box { flex-direction: column; align-items: stretch; }
+    .twofa-actions { display: grid; grid-template-columns: 1fr 1fr; }
+    .qr-box { justify-content: center; }
+}
+
+@media (max-width: 420px) {
+    /* На узких экранах язык прячем — он есть в настройках. */
+    .topbar .seg { display: none; }
 }

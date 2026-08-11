@@ -13,7 +13,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .config import config
 from .templating import templates, nav_stats
-from .auth import get_current_user
+from .auth import get_current_user, verify_session_token, set_session_cookie
 from .database import init_db_sync, execute, close_db
 from .telegram_manager import tg_manager
 from .backup_service import maybe_backup
@@ -100,7 +100,28 @@ async def security_headers(request: Request, call_next):
             resp.headers.setdefault(k, v)
         if config.IS_PRODUCTION:
             resp.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+    _refresh_session(request, resp)
     return resp
+
+
+def _refresh_session(request: Request, resp) -> None:
+    """Продлить окно бездействия, пока пользователь пользуется панелью.
+
+    Метка времени лежит внутри подписанного токена, поэтому продление —
+    это перевыпуск cookie. Проверяется только подпись, без обращения к базе.
+    """
+    token = request.cookies.get(config.SESSION_COOKIE_NAME)
+    if not token:
+        return
+    # Вход и выход уже выставили свою cookie — второй раз не трогаем,
+    # иначе выход тут же вернул бы сессию обратно.
+    for header in resp.headers.getlist("set-cookie"):
+        if header.startswith(config.SESSION_COOKIE_NAME + "="):
+            return
+    data = verify_session_token(token)
+    if not data:
+        return
+    set_session_cookie(resp, data["user_id"], data.get("username", ""), data.get("epoch", 0), data.get("iat"))
 
 
 @app.get("/healthz", include_in_schema=False)

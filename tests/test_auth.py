@@ -1,8 +1,10 @@
 """Вход, лимит попыток, инвалидация сессий."""
 import asyncio
+from datetime import timedelta
 
 from conftest import ADMIN_PASS, ADMIN_USER, login
 
+from app import auth as auth_mod
 from app.auth import get_client_ip, verify_session_token, create_session_token
 from app.config import config
 from app.database import fetch_one
@@ -115,8 +117,60 @@ def test_forged_cookie_is_rejected(client):
 
 def test_session_token_roundtrip():
     t = create_session_token(7, "bob", 3)
-    assert verify_session_token(t) == {"user_id": 7, "username": "bob", "epoch": 3}
+    data = verify_session_token(t)
+    assert data["user_id"] == 7 and data["username"] == "bob" and data["epoch"] == 3
+    assert isinstance(data["iat"], int)
     assert verify_session_token(t + "x") is None
+
+
+def test_session_cookie_is_not_persistent(client):
+    """Cookie должна умирать вместе с браузером: без Max-Age и Expires."""
+    r = login(client)
+    raw = "; ".join(r.headers.get_list("set-cookie"))
+    assert config.SESSION_COOKIE_NAME in raw
+    assert "Max-Age" not in raw and "max-age" not in raw
+    assert "Expires" not in raw and "expires" not in raw
+    assert "HttpOnly" in raw and "samesite=lax" in raw.lower()
+
+
+def test_session_expires_after_idle_timeout(client, monkeypatch):
+    login(client)
+    assert client.get("/", follow_redirects=False).status_code == 200
+    # Токен подписан вместе с меткой времени: сдвигаем часы вперёд.
+    real = auth_mod.utcnow
+
+    def later():
+        return real() + timedelta(seconds=config.SESSION_IDLE_TIMEOUT + 60)
+
+    monkeypatch.setattr(auth_mod, "utcnow", later)
+    monkeypatch.setattr(auth_mod._s, "loads", _expired_loads(auth_mod._s))
+    assert client.get("/", follow_redirects=False).status_code == 302
+
+
+def _expired_loads(serializer):
+    """Заставляет itsdangerous считать токен просроченным."""
+    def loads(value, max_age=None, **kw):
+        from itsdangerous import SignatureExpired
+        raise SignatureExpired("expired")
+    return loads
+
+
+def test_activity_slides_the_idle_window(client):
+    """Каждый запрос перевыпускает cookie, иначе окно не скользит."""
+    login(client)
+    r = client.get("/settings")
+    assert r.status_code == 200
+    assert any(config.SESSION_COOKIE_NAME in c for c in r.headers.get_list("set-cookie"))
+
+
+def test_logout_is_not_undone_by_the_refresh(client):
+    """Middleware не должен возвращать cookie, которую только что удалил выход."""
+    login(client)
+    r = client.post("/logout", follow_redirects=False)
+    raw = "; ".join(r.headers.get_list("set-cookie"))
+    assert config.SESSION_COOKIE_NAME in raw
+    assert 'tg_recovery_session=""' in raw or "tg_recovery_session=;" in raw or "Max-Age=0" in raw
+    assert client.get("/", follow_redirects=False).status_code == 302
 
 
 def test_username_change_keeps_session(client):

@@ -37,6 +37,7 @@
         </div>
     </div>
 
+    {% if is_admin and backup %}
     <div class="panel" data-stag>
         <div class="panel-title" data-i18n="sec_backup">Резервное копирование</div>
         <div class="panel-desc" data-i18n="backup_desc">база и зашифрованные сессии · хранится на сервере</div>
@@ -75,6 +76,7 @@
             <button type="submit" class="btn btn-primary btn-block" data-i18n="backup_now">Сделать бэкап сейчас</button>
         </form>
     </div>
+    {% endif %}
 
     <div class="panel" data-stag>
         <div class="panel-head">
@@ -164,4 +166,96 @@
     </div>
 
 </div>
+
+{% if is_admin %}
+<div class="panel panel-wide" data-stag>
+        <div class="panel-head">
+            <span class="panel-ico">{{ i.ico('users', 16, 1.8) }}</span>
+            <div style="min-width:0">
+                <div class="panel-title" data-i18n="sec_users">Пользователи</div>
+                <div class="panel-desc" style="margin-bottom:0" data-i18n="users_desc">у каждого свой вход и свои аккаунты · чужие им не видны</div>
+            </div>
+        </div>
+
+        <div class="user-list">
+            {% for p in people %}
+            <div class="user-row">
+                <span class="who-ava">{{ p.username | initials }}</span>
+                <div class="user-main">
+                    <div class="user-name">
+                        {{ p.username }}
+                        {% if p.is_admin %}<span class="tag tag-admin" data-i18n="role_admin">админ</span>{% endif %}
+                        {% if p.id == user.id %}<span class="tag" data-i18n="role_you">это вы</span>{% endif %}
+                        {% if p.totp_enabled %}<span class="tag tag-ok">2FA</span>{% endif %}
+                    </div>
+                    <div class="user-meta">
+                        <span>{{ p.accounts_count }} <span data-i18n="user_accounts">аккаунтов</span></span>
+                        <span>·</span>
+                        {% if p.last_login_at %}
+                        <span><span data-i18n="user_lastlogin">вход</span> <span class="time-ago" data-time="{{ p.last_login_at }}">{{ p.last_login_at }}</span></span>
+                        {% else %}
+                        <span data-i18n="user_never">ни разу не входил</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <details class="user-actions">
+                    <summary class="chip-btn" data-i18n="manage">Управление</summary>
+                    <div class="user-panel">
+                        <form method="post" action="/settings/users/{{ p.id }}/password" class="form">
+                            <label class="field">
+                                <span class="field-label" data-i18n="user_new_pw">Новый пароль</span>
+                                <input type="password" name="new_password" minlength="8" required>
+                                <span class="hint" data-i18n="user_new_pw_hint">Пользователь будет разлогинен на всех устройствах.</span>
+                            </label>
+                            <button type="submit" class="btn btn-ghost btn-block" data-i18n="user_set_pw">Задать пароль</button>
+                        </form>
+
+                        <form method="post" action="/settings/users/{{ p.id }}/admin" style="margin-top:12px">
+                            <input type="hidden" name="make_admin" value="{{ 'off' if p.is_admin else 'on' }}">
+                            <button type="submit" class="btn btn-ghost btn-block">
+                                {% if p.is_admin %}<span data-i18n="user_revoke_admin">Снять права админа</span>
+                                {% else %}<span data-i18n="user_grant_admin">Сделать админом</span>{% endif %}
+                            </button>
+                        </form>
+
+                        {% if p.id != user.id %}
+                        <form method="post" action="/settings/users/{{ p.id }}/delete" class="form" style="margin-top:12px"
+                              onsubmit="return confirm('Удалить «{{ p.username }}»? Все его Telegram-аккаунты будут отключены и удалены.')">
+                            <label class="field">
+                                <span class="field-label" data-i18n="confirm_pw">Подтвердите паролем</span>
+                                <input type="password" name="confirm_password" required>
+                            </label>
+                            <button type="submit" class="btn btn-danger btn-block" data-i18n="user_delete">Удалить пользователя</button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </details>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="row-title" style="font-family:var(--font-display);margin-bottom:12px" data-i18n="user_add">Добавить пользователя</div>
+        <form method="post" action="/settings/users/create" class="form user-create">
+            <label class="field">
+                <span class="field-label" data-i18n="k_login">Логин</span>
+                <input type="text" name="username" minlength="3" pattern="[A-Za-z0-9._\-]+" required>
+            </label>
+            <label class="field">
+                <span class="field-label" data-i18n="new_pw">Пароль</span>
+                <input type="password" name="password" minlength="8" required>
+            </label>
+            <label class="field">
+                <span class="field-label" data-i18n="repeat_pw">Подтвердите</span>
+                <input type="password" name="confirm_password" minlength="8" required>
+            </label>
+            <label class="acc-item" style="cursor:pointer">
+                <input type="checkbox" name="is_admin">
+                <span class="acc-item-name" style="font-weight:500" data-i18n="user_make_admin">Сделать администратором</span>
+            </label>
+            <button type="submit" class="btn btn-primary btn-block" data-i18n="user_create">Создать</button>
+        </form>
+</div>
+{% endif %}
 {% endblock %}

@@ -34,6 +34,14 @@
                 {{ i.ico('gear', 19) }}
                 <span data-i18n="nav_settings">Настройки</span>
             </a>
+            {# На мобильном боковой блок с пользователем скрыт, а вместе с ним
+               пропадала единственная кнопка выхода — дублируем её в меню. #}
+            <form action="/logout" method="post" class="nav-logout">
+                <button type="submit" class="nav-link">
+                    {{ i.ico('exit', 19) }}
+                    <span data-i18n="logout">Выйти</span>
+                </button>
+            </form>
         </nav>
 
         <div class="sidebar-spacer hide-mobile"></div>
@@ -54,7 +62,11 @@
             <span class="who-ava">{{ user.username | initials }}</span>
             <span class="who-text">
                 <span class="who-name">{{ user.username }}</span>
+                {% if user.is_admin %}
                 <span class="who-role" data-i18n="user_role">Администратор</span>
+                {% else %}
+                <span class="who-role" data-i18n="role_user">Пользователь</span>
+                {% endif %}
             </span>
             <form action="/logout" method="post" class="inline-form">
                 <button type="submit" class="who-exit" data-i18n-title="logout" title="Выйти">{{ i.ico('exit', 17) }}</button>
