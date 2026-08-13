@@ -105,12 +105,41 @@ h1, h2, h3 { font-family: var(--font-display); font-weight: 600; letter-spacing:
 @keyframes livePulse { 0% { box-shadow: 0 0 0 0 var(--ok-glow); } 70% { box-shadow: 0 0 0 7px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
 @keyframes freshSweep { 0% { transform: translateX(-120%); } 60%, 100% { transform: translateX(220%); } }
 @keyframes orbit { to { transform: rotate(360deg); } }
+@keyframes panelDrop { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+@keyframes toastIn { from { opacity: 0; transform: translateY(-10px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes popIn { 0% { transform: scale(.6); opacity: 0; } 60% { transform: scale(1.08); } 100% { transform: scale(1); opacity: 1; } }
+@keyframes barGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes inkRipple { to { transform: scale(2.4); opacity: 0; } }
 
+/* Появление содержимого «волной»: соседние карточки стартуют со сдвигом,
+   поэтому страница собирается, а не вспыхивает целиком. */
 .content > * { animation: fadeRise .5s cubic-bezier(.22, 1, .36, 1) both; }
 [data-stag] { animation: fadeRise .55s cubic-bezier(.22, 1, .36, 1) both; }
+.cards > [data-stag]:nth-child(1) { animation-delay: .04s; }
+.cards > [data-stag]:nth-child(2) { animation-delay: .10s; }
+.cards > [data-stag]:nth-child(3) { animation-delay: .16s; }
+.cards > [data-stag]:nth-child(4) { animation-delay: .22s; }
+.grid > [data-stag]:nth-child(1) { animation-delay: .04s; }
+.grid > [data-stag]:nth-child(2) { animation-delay: .09s; }
+.grid > [data-stag]:nth-child(3) { animation-delay: .14s; }
+.grid > [data-stag]:nth-child(4) { animation-delay: .19s; }
+.grid > [data-stag]:nth-child(5) { animation-delay: .24s; }
+.grid > [data-stag]:nth-child(6) { animation-delay: .29s; }
+.stats > .stat:nth-child(1) { animation-delay: .05s; }
+.stats > .stat:nth-child(2) { animation-delay: .11s; }
+.stats > .stat:nth-child(3) { animation-delay: .17s; }
+
+/* Клик по кнопке пускает «волну» от точки нажатия. */
+.ink { position: absolute; border-radius: 50%; background: currentColor; opacity: .22; pointer-events: none; transform: scale(0); animation: inkRipple .55s cubic-bezier(.22, 1, .36, 1) forwards; }
+.btn, .chip-btn, .copy-btn, .nav-link, .icon-btn { position: relative; overflow: hidden; }
+
+/* Клавиатурная навигация должна быть видна. */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+.btn:focus-visible, .chip-btn:focus-visible, .nav-link:focus-visible { outline-offset: 3px; }
 
 @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+    *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+    .ink { display: none; }
 }
 
 /* --------------------------------------------------------------- фон */
@@ -175,7 +204,8 @@ h1, h2, h3 { font-family: var(--font-display); font-weight: 600; letter-spacing:
 .live-num { font-family: var(--font-display); font-weight: 600; font-size: 22px; }
 .live-of { color: var(--text3); font-size: 13px; }
 .live-bar { margin-top: 10px; height: 5px; border-radius: 3px; background: var(--bg2); overflow: hidden; }
-.live-bar > span { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--ok), var(--accent)); transition: width .6s ease; }
+.live-bar > span { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--ok), var(--accent)); transition: width .6s ease; transform-origin: left; animation: barGrow .8s cubic-bezier(.22, 1, .36, 1) .25s both; }
+.live-num { font-variant-numeric: tabular-nums; }
 
 .who { display: flex; align-items: center; gap: 11px; padding: 10px 8px 2px; margin-top: 6px; }
 .who-ava { width: 34px; height: 34px; border-radius: 10px; flex: none; display: grid; place-items: center; background: linear-gradient(160deg, var(--surface2), var(--surface)); border: 1px solid var(--border); font-family: var(--font-display); font-weight: 600; font-size: 14px; color: var(--accent); }
@@ -261,8 +291,13 @@ h1, h2, h3 { font-family: var(--font-display); font-weight: 600; letter-spacing:
 .switch input { position: absolute; opacity: 0; pointer-events: none; }
 
 /* --------------------------------------------------------------- плашки */
-.alert { padding: 13px 16px; border-radius: 12px; font-size: 13.5px; line-height: 1.5; margin-bottom: 18px; border: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+.alert { padding: 13px 16px; border-radius: 12px; font-size: 13.5px; line-height: 1.5; margin-bottom: 18px; border: 1px solid var(--border); display: flex; align-items: center; gap: 10px; animation: toastIn .4s cubic-bezier(.22, 1, .36, 1) both; }
 .alert svg { flex: none; }
+.alert-error svg { color: var(--danger); }
+.alert-ok svg { color: var(--ok); }
+/* Уходит само — сообщение об успехе не должно висеть до перезагрузки. */
+.alert[data-toast] { transition: opacity .35s ease, transform .35s ease, margin .35s ease, max-height .35s ease; max-height: 200px; overflow: hidden; }
+.alert[data-toast].leaving { opacity: 0; transform: translateY(-8px); max-height: 0; margin-bottom: 0; padding-top: 0; padding-bottom: 0; border-width: 0; }
 .alert-error { background: var(--danger-soft); border-color: color-mix(in srgb, var(--danger) 30%, transparent); color: var(--text); }
 .alert-ok { background: var(--ok-soft); border-color: color-mix(in srgb, var(--ok) 30%, transparent); color: var(--text); }
 .note { padding: 13px 15px; border-radius: 12px; background: var(--bg2); border: 1px solid var(--border); color: var(--text2); font-size: 13px; line-height: 1.5; }
@@ -292,17 +327,60 @@ h1, h2, h3 { font-family: var(--font-display); font-weight: 600; letter-spacing:
 .kv-k { color: var(--text3); font-size: 13px; }
 .kv-v { font-weight: 600; font-size: 13.5px; text-align: right; }
 
-/* Раскладка настроек колонками, а не grid-сеткой: в сетке строка тянулась
-   по самой высокой карточке, и под низкими зияли пустоты в пол-экрана.
-   Колонки упаковывают карточки вплотную по вертикали. */
-.settings-grid { column-count: 3; column-gap: 14px; }
-.settings-grid > .panel { break-inside: avoid; margin: 0 0 14px; }
-/* Широкие блоки (пользователи) живут отдельным рядом под колонками:
-   column-span в связке с колонками ведёт себя нестабильно и рвёт карточку. */
-.panel-wide { margin-top: 0; }
+/* Настройки разбиты на смысловые разделы, внутри раздела — ряд карточек.
+   Карточки в ряду тянутся до общей высоты, а кнопки прижаты к низу через
+   .panel-foot: без этого блоки выглядели разной длины и «криво». */
+.section-head {
+    margin: 34px 0 14px; font-size: 13px; font-weight: 700;
+    letter-spacing: 1.4px; text-transform: uppercase; color: var(--text3);
+    display: flex; align-items: center; gap: 12px;
+}
+.section-head::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+.content > .section-head:first-of-type { margin-top: 6px; }
 
-@media (max-width: 1280px) { .settings-grid { column-count: 2; } }
-@media (max-width: 760px) { .settings-grid { column-count: 1; } }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; align-items: stretch; }
+.cards > .panel { display: flex; flex-direction: column; margin: 0; }
+.panel-body { display: flex; flex-direction: column; flex: 1; gap: 14px; }
+/* Прижимает действие к нижней кромке, чтобы кнопки соседних карточек
+   стояли на одной линии независимо от количества полей. */
+.panel-foot { margin-top: auto; padding-top: 4px; display: flex; flex-direction: column; gap: 10px; }
+.panel-note { margin: 0; color: var(--text2); font-size: 13px; line-height: 1.55; }
+.panel-note.muted { color: var(--text3); font-size: 12.5px; }
+.panel-note.warn { color: var(--warn); }
+.panel-span-2 { grid-column: span 2; }
+.panel-danger { border-color: color-mix(in srgb, var(--danger) 28%, var(--border)); }
+.panel-ico-danger { background: var(--danger-soft); color: var(--danger); }
+
+.state-line { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; padding: 6px 12px; border-radius: 999px; align-self: flex-start; }
+.state-on { background: var(--ok-soft); color: var(--ok); }
+.state-off { background: var(--surface2); color: var(--text3); }
+
+.check-row { display: flex; align-items: flex-start; gap: 11px; padding: 12px 13px; border-radius: 11px; background: var(--bg2); border: 1px solid var(--border); cursor: pointer; transition: border-color .2s; }
+.check-row:hover { border-color: var(--border-strong); }
+.check-row input { accent-color: var(--accent); width: 16px; height: 16px; flex: none; margin-top: 2px; }
+.check-row > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+/* Список готовых архивов */
+.file-list { display: flex; flex-direction: column; gap: 8px; }
+.file-row { display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: 11px; background: var(--bg2); border: 1px solid var(--border); transition: border-color .2s, transform .2s; }
+.file-row:hover { border-color: var(--border-strong); }
+.file-ico { width: 30px; height: 30px; border-radius: 9px; flex: none; display: grid; place-items: center; background: var(--a1); color: var(--accent); }
+.file-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.file-name { font-weight: 600; font-size: 13px; }
+.file-meta { font-family: var(--font-mono); font-size: 11.5px; color: var(--text3); }
+.file-row .chip-btn { flex: none; }
+
+/* Свой выбор файла: системная кнопка не переводится и не поддаётся теме. */
+.file-pick { display: flex; align-items: center; gap: 11px; padding: 9px 11px; border-radius: 12px; background: var(--bg2); border: 1px solid var(--border); cursor: pointer; transition: border-color .2s, box-shadow .2s; }
+.file-pick:hover { border-color: var(--border-strong); }
+.file-pick:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--a1); }
+.file-pick input[type="file"] { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.file-pick-btn { flex: none; padding: 7px 13px; border-radius: 9px; background: var(--surface2); border: 1px solid var(--border); font-size: 12.5px; font-weight: 600; color: var(--text); transition: .2s; }
+.file-pick:hover .file-pick-btn { border-color: var(--border-strong); }
+.file-pick-name { min-width: 0; flex: 1; font-size: 12.5px; color: var(--text3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-pick.has-file .file-pick-name { color: var(--text); font-family: var(--font-mono); font-size: 12px; }
+
+@media (max-width: 1100px) { .panel-span-2 { grid-column: span 1; } }
 
 /* --------------------------------------------------------------- статы */
 .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 24px; }
@@ -310,7 +388,7 @@ h1, h2, h3 { font-family: var(--font-display); font-weight: 600; letter-spacing:
 .stat-accent { background: linear-gradient(160deg, var(--a1), var(--surface)); }
 .stat-label { display: flex; align-items: center; gap: 8px; color: var(--text3); font-size: 12px; font-weight: 600; letter-spacing: .3px; text-transform: uppercase; }
 .stat-label svg { flex: none; }
-.stat-num { margin-top: 12px; font-family: var(--font-display); font-weight: 600; font-size: 34px; line-height: 1; letter-spacing: -1px; }
+.stat-num { margin-top: 12px; font-family: var(--font-display); font-weight: 600; font-size: 34px; line-height: 1; letter-spacing: -1px; font-variant-numeric: tabular-nums; }
 .stat-num.ok { color: var(--ok); }
 .stat-num.accent { color: var(--accent); }
 
@@ -480,21 +558,48 @@ h1, h2, h3 { font-family: var(--font-display); font-weight: 600; letter-spacing:
 
 /* ---------------------------------------------- пользователи (админ) */
 .user-list { display: flex; flex-direction: column; gap: 8px; }
-.user-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 14px; border-radius: 12px; background: var(--bg2); border: 1px solid var(--border); }
-.user-main { flex: 1; min-width: 0; }
+/* Вся строка — это <details>: клик по ней раскрывает управление. Раньше
+   details лежал внутри flex-строки отдельным элементом, и раскрытая панель
+   растягивала строку, повисая сбоку. */
+.user-row { padding: 12px 14px; border-radius: 12px; background: var(--bg2); border: 1px solid var(--border); transition: border-color .2s; }
+.user-row:hover { border-color: var(--border-strong); }
+.user-row[open] { border-color: var(--border-strong); }
+.user-summary { display: flex; align-items: center; gap: 12px; }
+.user-summary::-webkit-details-marker { display: none; }
+.user-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .user-name { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-weight: 600; font-size: 14px; }
 .user-meta { margin-top: 3px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; color: var(--text3); font-size: 12px; }
+.user-toggle { flex: none; display: inline-flex; align-items: center; gap: 6px; }
+.user-toggle svg { transition: transform .25s cubic-bezier(.22, 1, .36, 1); }
+.user-row[open] .user-toggle svg { transform: rotate(180deg); }
+.dot-sep { opacity: .5; }
 .tag { padding: 2px 8px; border-radius: 6px; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; background: var(--surface2); color: var(--text3); }
 .tag-admin { background: var(--a1); color: var(--accent); }
 .tag-ok { background: var(--ok-soft); color: var(--ok); }
-.user-actions { flex: none; }
-.user-actions > summary { display: inline-block; }
-.user-actions[open] > summary { margin-bottom: 12px; }
-.user-panel { flex-basis: 100%; width: 100%; padding: 14px; border-radius: 11px; background: var(--surface); border: 1px solid var(--border); }
-/* Форма добавления раскладывается по ширине панели, а не жмётся в столбик. */
-.user-create { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px 14px; align-items: end; }
-.user-create .field { min-width: 0; }
-.user-create .acc-item { min-width: 0; }
+
+/* Раскрытая карточка управления: поля в ряд, а не в один узкий столбик. */
+.user-panel {
+    width: 100%; margin-top: 14px; padding: 16px;
+    border-radius: 12px; background: var(--surface); border: 1px solid var(--border);
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px;
+    align-items: start;
+    animation: panelDrop .28s cubic-bezier(.22, 1, .36, 1) both;
+}
+.user-form { display: flex; flex-direction: column; gap: 10px; }
+.user-form .field { gap: 6px; }
+.user-form .btn { margin-top: auto; }
+
+/* Форма добавления идёт по ширине карточки: три поля в ряд, ниже флажок и кнопка. */
+.create-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; align-items: start; }
+.create-form .field { min-width: 0; }
+.create-wide { grid-column: 1 / -1; }
+.create-submit { grid-column: 1 / -1; justify-self: start; min-width: 220px; }
+.cards-single { grid-template-columns: 1fr; }
+
+@media (max-width: 640px) {
+    .create-form { grid-template-columns: 1fr; }
+    .create-submit { width: 100%; justify-self: stretch; }
+}
 
 /* ------------------------------------------------------------ адаптив */
 @media (max-width: 880px) {
@@ -537,8 +642,10 @@ h1, h2, h3 { font-family: var(--font-display); font-weight: 600; letter-spacing:
     .acc-head { gap: 14px; }
     .acc-actions { width: 100%; }
     .acc-actions .inline-form, .acc-actions .btn { flex: 1; width: 100%; }
-    .user-actions, .user-actions > summary { width: 100%; }
-    .user-actions > summary { text-align: center; }
+    /* На узком экране «Управление» уходит под имя, а не жмётся сбоку. */
+    .user-summary { flex-wrap: wrap; }
+    .user-toggle { width: 100%; justify-content: center; margin-top: 4px; }
+    .user-panel { grid-template-columns: 1fr; }
     .user-create { grid-template-columns: 1fr; }
     .panel-wide { padding: 18px 14px; }
     .empty { padding: 40px 18px; }

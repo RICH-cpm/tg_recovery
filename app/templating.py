@@ -4,6 +4,7 @@
 показывать замаскированный телефон или инициалы, не трогая маршруты.
 """
 import re
+from pathlib import Path
 
 from fastapi.templating import Jinja2Templates
 
@@ -11,6 +12,32 @@ from .config import config
 from .database import fetch_one
 
 templates = Jinja2Templates(directory=config.TEMPLATES_DIR)
+
+_static_versions = {}
+
+
+def static_url(path):
+    """Ссылка на статику с отпечатком файла: /static/css/style.css?v=1a2b3c4d.
+
+    Nginx отдаёт /static/ с заголовком «expires 7d», поэтому после обновления
+    браузер ещё неделю показывал старые CSS и JS вместе с новой разметкой:
+    вёрстка разъезжалась, а неизвестные строки перевода выводились ключами.
+    Отпечаток меняется вместе с файлом и заставляет браузер скачать свежий.
+    """
+    path = path.lstrip("/")
+    full = Path(config.STATIC_DIR) / path
+    try:
+        stamp = full.stat().st_mtime_ns
+    except OSError:
+        return f"/static/{path}"
+    cached = _static_versions.get(path)
+    if not cached or cached[0] != stamp:
+        cached = (stamp, format(stamp & 0xFFFFFFFF, "08x"))
+        _static_versions[path] = cached
+    return f"/static/{path}?v={cached[1]}"
+
+
+templates.env.globals["static_url"] = static_url
 
 
 # Длина телефонного кода страны. Всё, чего нет в списках, считаем трёхзначным —

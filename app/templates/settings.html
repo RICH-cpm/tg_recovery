@@ -4,44 +4,203 @@
 {% set page_title = 'Настройки' %}{% set page_title_key = 'set_title' %}
 {% block title %}Настройки — TG Recovery{% endblock %}
 
+{% macro section(key, ru) %}
+<h2 class="section-head"><span data-i18n="{{ key }}">{{ ru }}</span></h2>
+{% endmacro %}
+
 {% block content %}
-{% if message %}<div class="alert alert-ok">{{ message }}</div>{% endif %}
-{% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+{% if message %}<div class="alert alert-ok" data-toast>{{ i.ico('check', 16, 2) }}<span>{{ message }}</span></div>{% endif %}
+{% if error %}<div class="alert alert-error" data-toast>{{ i.ico('alert', 16, 2) }}<span>{{ error }}</span></div>{% endif %}
 
-<div class="settings-grid">
-
+{{ section('sec_profile', 'Профиль') }}
+<div class="cards">
     <div class="panel" data-stag>
-        <div class="panel-title" style="margin-bottom:16px" data-i18n="sec_appearance">Оформление</div>
-        <div class="row row-bordered">
-            <div>
-                <div class="row-title" data-i18n="dark_theme">Тёмная тема</div>
-                <div class="row-hint" data-i18n="dark_theme_hint">По умолчанию — как на устройстве</div>
-            </div>
-            <button type="button" class="switch" data-theme-switch aria-label="Тёмная тема"><span></span></button>
+        <div class="panel-head">
+            <span class="panel-ico">{{ i.ico('user', 16, 1.8) }}</span>
+            <div class="panel-title" data-i18n="sec_account">Учётная запись</div>
         </div>
-        <div class="row row-top">
-            <div class="row-title" data-i18n="lang">Язык интерфейса</div>
-            <div class="seg" style="background:var(--bg2)">
-                <button type="button" data-lang-set="ru">RU</button>
-                <button type="button" data-lang-set="en">EN</button>
-            </div>
-        </div>
-    </div>
-
-    <div class="panel" data-stag>
-        <div class="panel-title" style="margin-bottom:14px" data-i18n="sec_account">Учётная запись</div>
         <div class="kv"><span class="kv-k" data-i18n="k_login">Логин</span><span class="kv-v">{{ full_user.username }}</span></div>
+        <div class="kv"><span class="kv-k" data-i18n="k_role">Роль</span>
+            <span class="kv-v">
+                {%- if user.is_admin %}<span class="tag tag-admin" data-i18n="role_admin">админ</span>
+                {%- else %}<span class="tag" data-i18n="role_user">Пользователь</span>{% endif %}
+            </span>
+        </div>
+        <div class="kv"><span class="kv-k" data-i18n="k_2fa">Двухфакторная</span>
+            <span class="kv-v">
+                {%- if full_user.totp_enabled %}<span class="tag tag-ok" data-i18n="state_on">Включена</span>
+                {%- else %}<span class="tag" data-i18n="state_off">Отключена</span>{% endif %}
+            </span>
+        </div>
+        <div class="kv"><span class="kv-k" data-i18n="k_accounts">Telegram-аккаунтов</span><span class="kv-v">{{ accounts | length }}</span></div>
         <div class="kv"><span class="kv-k" data-i18n="k_created">Создана</span><span class="kv-v time-ago" data-time="{{ full_user.created_at }}">{{ full_user.created_at }}</span></div>
         <div class="kv"><span class="kv-k" data-i18n="k_lastlogin">Последний вход</span>
             <span class="kv-v {% if full_user.last_login_at %}time-ago{% endif %}" {% if full_user.last_login_at %}data-time="{{ full_user.last_login_at }}"{% endif %}>{{ full_user.last_login_at or '—' }}</span>
         </div>
     </div>
 
-    {% if is_admin and backup %}
     <div class="panel" data-stag>
-        <div class="panel-title" data-i18n="sec_backup">Резервное копирование</div>
-        <div class="panel-desc" data-i18n="backup_desc">база и зашифрованные сессии · хранится на сервере</div>
-        <form method="post" action="/settings/backup/save">
+        <div class="panel-head">
+            <span class="panel-ico">{{ i.ico('tag', 16, 1.8) }}</span>
+            <div class="panel-title" data-i18n="sec_username">Сменить логин</div>
+        </div>
+        <form method="post" action="/settings/change-username" class="form panel-body">
+            <label class="field">
+                <span class="field-label" data-i18n="new_login">Новый логин</span>
+                <input type="text" name="new_username" minlength="3" value="{{ full_user.username }}" required>
+            </label>
+            <label class="field">
+                <span class="field-label" data-i18n="confirm_pw">Подтвердите паролем</span>
+                <input type="password" name="current_password" autocomplete="current-password" required>
+            </label>
+            <div class="panel-foot">
+                <button type="submit" class="btn btn-ghost btn-block" data-i18n="change_login">Сменить логин</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="panel" data-stag>
+        <div class="panel-head">
+            <span class="panel-ico">{{ i.ico('key', 16, 1.8) }}</span>
+            <div class="panel-title" data-i18n="sec_password">Сменить пароль</div>
+        </div>
+        <form method="post" action="/settings/change-password" class="form panel-body">
+            <label class="field">
+                <span class="field-label" data-i18n="cur_pw">Текущий пароль</span>
+                <input type="password" name="current_password" autocomplete="current-password" required>
+            </label>
+            <label class="field">
+                <span class="field-label" data-i18n="new_pw">Новый пароль</span>
+                <input type="password" name="new_password" minlength="8" autocomplete="new-password" required>
+            </label>
+            <label class="field">
+                <span class="field-label" data-i18n="repeat_pw">Подтвердите</span>
+                <input type="password" name="confirm_password" minlength="8" autocomplete="new-password" required>
+            </label>
+            <div class="panel-foot">
+                <span class="hint" data-i18n="pw_hint">Минимум 8 символов. Другие сессии будут завершены.</span>
+                <button type="submit" class="btn btn-ghost btn-block" data-i18n="change_pw">Сменить пароль</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{{ section('sec_security', 'Безопасность') }}
+<div class="cards">
+    <div class="panel" data-stag>
+        <div class="panel-head">
+            <span class="panel-ico">{{ i.ico('shield', 16, 1.8) }}</span>
+            <div class="panel-title" data-i18n="sec_2fa">Двухфакторная аутентификация</div>
+        </div>
+        <div class="panel-body">
+            {% if full_user.totp_enabled %}
+            <div class="state-line state-on">
+                <span class="pill-dot"></span><span data-i18n="state_on">Включена</span>
+            </div>
+            <p class="panel-note" data-i18n="twofa_on_note">При входе нужен код из приложения-аутентификатора.</p>
+            <form method="post" action="/settings/totp/disable" class="form panel-foot" onsubmit="return confirm('Отключить 2FA?')">
+                <label class="field">
+                    <span class="field-label" data-i18n="confirm_pw">Подтвердите паролем</span>
+                    <input type="password" name="password" required>
+                </label>
+                <button type="submit" class="btn btn-danger btn-block" data-i18n="disable_2fa">Отключить 2FA</button>
+            </form>
+            {% else %}
+            <div class="state-line state-off">
+                <span class="pill-dot"></span><span data-i18n="state_off">Отключена</span>
+            </div>
+            <p class="panel-note" data-i18n="twofa_off_note">Защищает вход в эту панель. Рекомендуется, раз она доступна из интернета.</p>
+            <div class="panel-foot">
+                <a href="/settings/totp/setup" class="btn btn-primary btn-block" data-i18n="enable_2fa">Включить 2FA</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="panel" data-stag>
+        <div class="panel-head">
+            <span class="panel-ico">{{ i.ico('devices', 16, 1.8) }}</span>
+            <div class="panel-title" data-i18n="sec_sessions">Сессии</div>
+        </div>
+        <div class="panel-body">
+            <p class="panel-note" data-i18n="sessions_desc">Текущее устройство останется в системе, остальные разлогинятся.</p>
+            <p class="panel-note muted" data-i18n="sessions_hint">Вход и так завершается при закрытии браузера и после 30 минут без действий.</p>
+            <form method="post" action="/settings/sessions/revoke-all" class="panel-foot" onsubmit="return confirm('Завершить все другие сессии?')">
+                <button type="submit" class="btn btn-danger btn-block" data-i18n="revoke_all">Выйти на всех устройствах</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="panel" data-stag>
+        <div class="panel-head">
+            <span class="panel-ico">{{ i.ico('palette', 16, 1.8) }}</span>
+            <div class="panel-title" data-i18n="sec_appearance">Оформление</div>
+        </div>
+        <div class="panel-body">
+            <div class="row row-bordered">
+                <div>
+                    <div class="row-title" data-i18n="dark_theme">Тёмная тема</div>
+                    <div class="row-hint" data-i18n="dark_theme_hint">По умолчанию — как на устройстве</div>
+                </div>
+                <button type="button" class="switch" data-theme-switch aria-label="Тёмная тема"><span></span></button>
+            </div>
+            <div class="row row-top">
+                <div>
+                    <div class="row-title" data-i18n="lang">Язык интерфейса</div>
+                    <div class="row-hint" data-i18n="lang_hint">Названия аккаунтов и коды не переводятся</div>
+                </div>
+                <div class="seg" style="background:var(--bg2)">
+                    <button type="button" data-lang-set="ru">RU</button>
+                    <button type="button" data-lang-set="en">EN</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{ section('sec_accounts', 'Мои аккаунты') }}
+<div class="cards">
+    <div class="panel panel-span-2" data-stag>
+        <div class="panel-head">
+            <span class="panel-ico">{{ i.ico('grid', 16, 1.8) }}</span>
+            <div style="min-width:0">
+                <div class="panel-title" data-i18n="sec_accounts_manage">Удаление аккаунтов</div>
+                <div class="panel-desc" style="margin-bottom:0" data-i18n="accounts_desc">удаление списком · сессии деавторизуются</div>
+            </div>
+        </div>
+        {% if accounts %}
+        <form method="post" action="/settings/accounts/delete" class="panel-body" onsubmit="return confirm('Удалить выбранные аккаунты?')">
+            <div class="acc-list">
+                {% for a in accounts %}
+                <label class="acc-item">
+                    <input type="checkbox" name="account_ids" value="{{ a.id }}">
+                    <span class="acc-item-main">
+                        <span class="acc-item-name">{{ a.display_name }}</span>
+                        <span class="acc-item-phone">{{ a.phone_number | mask_phone }}</span>
+                    </span>
+                    <span class="pill {% if a.is_connected %}pill-on{% endif %}"><span class="pill-dot"></span>{% if a.is_connected %}<span data-i18n="card_connected">подключён</span>{% else %}<span data-i18n="card_offline">не в сети</span>{% endif %}</span>
+                </label>
+                {% endfor %}
+            </div>
+            <div class="panel-foot">
+                <button type="submit" class="btn btn-danger btn-block" data-i18n="delete_selected">Удалить выбранные</button>
+            </div>
+        </form>
+        {% else %}
+        <div class="panel-body"><div class="note" data-i18n="no_accounts_yet">Пока нет добавленных аккаунтов.</div></div>
+        {% endif %}
+    </div>
+</div>
+
+{% if is_admin and backup %}
+{{ section('sec_backup', 'Резервное копирование') }}
+<div class="cards">
+    <div class="panel" data-stag>
+        <div class="panel-head">
+            <span class="panel-ico">{{ i.ico('clock', 16, 1.8) }}</span>
+            <div class="panel-title" data-i18n="backup_schedule">Расписание</div>
+        </div>
+        <form method="post" action="/settings/backup/save" class="panel-body">
             <div class="row row-bordered">
                 <div>
                     <div class="row-title" data-i18n="auto_backup">Автоматический бэкап</div>
@@ -52,7 +211,7 @@
                     <span></span>
                 </label>
             </div>
-            <div class="row" style="padding:16px 0;border-bottom:1px solid var(--border)">
+            <div class="row row-top row-bordered">
                 <span class="row-title" data-i18n="period">Периодичность</span>
                 <span class="select-wrap">
                     <select name="backup_period">
@@ -63,199 +222,185 @@
                     {{ i.ico('chevron', 14, 2) }}
                 </span>
             </div>
-            <div class="row" style="padding:14px 0">
-                <span class="kv-k" data-i18n="last_backup">Последний бэкап</span>
+            <div class="kv"><span class="kv-k" data-i18n="backup_kept">Хранятся копий</span><span class="kv-v">{{ backup.files | length }}</span></div>
+            <div class="kv" style="border-bottom:none"><span class="kv-k" data-i18n="last_backup">Последний бэкап</span>
                 <span class="kv-v">
                     {%- if backup.last_at %}<span class="time-ago" data-time="{{ backup.last_at }}">{{ backup.last_at }}</span>{% if backup.last_size %} · {{ backup.last_size }}{% endif %}
                     {%- else %}<span data-i18n="backup_never">ещё не было</span>{% endif %}
                 </span>
             </div>
-            <button type="submit" class="btn btn-ghost btn-block" data-i18n="save">Сохранить</button>
-        </form>
-        <form method="post" action="/settings/backup/now" style="margin-top:10px">
-            <button type="submit" class="btn btn-primary btn-block" data-i18n="backup_now">Сделать бэкап сейчас</button>
+            <div class="panel-foot">
+                <button type="submit" class="btn btn-ghost btn-block" data-i18n="save">Сохранить</button>
+            </div>
         </form>
     </div>
-    {% endif %}
 
     <div class="panel" data-stag>
         <div class="panel-head">
-            <span class="panel-ico">{{ i.ico('shield', 16, 1.8) }}</span>
-            <div class="panel-title" data-i18n="sec_2fa">Двухфакторная аутентификация</div>
+            <span class="panel-ico">{{ i.ico('download', 16, 1.8) }}</span>
+            <div style="min-width:0">
+                <div class="panel-title" data-i18n="backup_export">Готовые копии</div>
+                <div class="panel-desc" style="margin-bottom:0" data-i18n="backup_export_desc">база и зашифрованные сессии · храните копию вне сервера</div>
+            </div>
         </div>
-        {% if full_user.totp_enabled %}
-        <p class="totp-d" style="margin:0 0 16px" data-i18n="twofa_on_note">Включена. При входе нужен код из приложения-аутентификатора.</p>
-        <form method="post" action="/settings/totp/disable" class="form" onsubmit="return confirm('Отключить 2FA?')">
-            <label class="field">
-                <span class="field-label" data-i18n="confirm_pw">Подтвердите паролем</span>
-                <input type="password" name="password" required>
-            </label>
-            <button type="submit" class="btn btn-danger btn-block" data-i18n="disable_2fa">Отключить 2FA</button>
-        </form>
-        {% else %}
-        <p class="totp-d" style="margin:0 0 16px" data-i18n="twofa_off_note">Защищает вход в эту панель. Рекомендуется, раз она доступна из интернета.</p>
-        <a href="/settings/totp/setup" class="btn btn-ghost btn-block" data-i18n="enable_2fa">Включить 2FA</a>
-        {% endif %}
-
-        <div class="divider"></div>
-
-        <div class="row-title" style="font-family:var(--font-display);margin-bottom:4px" data-i18n="sec_sessions">Сессии</div>
-        <p class="row-hint" style="margin:0 0 14px" data-i18n="sessions_desc">Текущее устройство останется в системе, остальные разлогинятся.</p>
-        <form method="post" action="/settings/sessions/revoke-all" onsubmit="return confirm('Завершить все другие сессии?')">
-            <button type="submit" class="btn btn-danger btn-block" data-i18n="revoke_all">Выйти на всех устройствах</button>
-        </form>
-    </div>
-
-    <div class="panel" data-stag>
-        <div class="panel-title" style="margin-bottom:14px" data-i18n="sec_username">Сменить логин</div>
-        <form method="post" action="/settings/change-username" class="form">
-            <label class="field">
-                <span class="field-label" data-i18n="new_login">Новый логин</span>
-                <input type="text" name="new_username" minlength="3" value="{{ full_user.username }}" required>
-            </label>
-            <label class="field">
-                <span class="field-label" data-i18n="confirm_pw">Подтвердите паролем</span>
-                <input type="password" name="current_password" required>
-            </label>
-            <button type="submit" class="btn btn-ghost btn-block" data-i18n="change_login">Сменить логин</button>
-        </form>
-    </div>
-
-    <div class="panel" data-stag>
-        <div class="panel-title" style="margin-bottom:14px" data-i18n="sec_password">Сменить пароль</div>
-        <form method="post" action="/settings/change-password" class="form">
-            <label class="field">
-                <span class="field-label" data-i18n="cur_pw">Текущий пароль</span>
-                <input type="password" name="current_password" required>
-            </label>
-            <label class="field">
-                <span class="field-label" data-i18n="new_pw">Новый пароль</span>
-                <input type="password" name="new_password" minlength="8" required>
-                <span class="hint" data-i18n="pw_hint">Минимум 8 символов. Другие сессии будут завершены.</span>
-            </label>
-            <label class="field">
-                <span class="field-label" data-i18n="repeat_pw">Подтвердите</span>
-                <input type="password" name="confirm_password" minlength="8" required>
-            </label>
-            <button type="submit" class="btn btn-ghost btn-block" data-i18n="change_pw">Сменить пароль</button>
-        </form>
-    </div>
-
-    <div class="panel" data-stag>
-        <div class="panel-title" data-i18n="sec_accounts">Управление аккаунтами</div>
-        <div class="panel-desc" data-i18n="accounts_desc">удаление списком · сессии деавторизуются</div>
-        {% if accounts %}
-        <form method="post" action="/settings/accounts/delete" onsubmit="return confirm('Удалить выбранные аккаунты?')">
-            <div class="acc-list">
-                {% for a in accounts %}
-                <label class="acc-item">
-                    <input type="checkbox" name="account_ids" value="{{ a.id }}">
-                    <span class="acc-item-main">
-                        <span class="acc-item-name">{{ a.display_name }}</span>
-                        <span class="acc-item-phone">{{ a.phone_number | mask_phone }}</span>
+        <div class="panel-body">
+            {% if backup.files %}
+            <div class="file-list">
+                {% for f in backup.files %}
+                <div class="file-row">
+                    <span class="file-ico">{{ i.ico('archive', 15, 1.8) }}</span>
+                    <span class="file-main">
+                        <span class="file-name time-ago" data-time="{{ f.created_at }}">{{ f.created_at }}</span>
+                        <span class="file-meta">{{ f.size }}</span>
                     </span>
-                    <span class="pill {% if a.is_connected %}pill-on{% endif %}" style="font-size:11px;padding:3px 8px"><span class="pill-dot"></span>{% if a.is_connected %}<span data-i18n="card_connected">подключён</span>{% else %}<span data-i18n="card_offline">не в сети</span>{% endif %}</span>
-                </label>
+                    <a class="chip-btn accent" href="/settings/backup/download/{{ f.name }}" download data-i18n="download">Скачать</a>
+                </div>
                 {% endfor %}
             </div>
-            <button type="submit" class="btn btn-danger btn-block" data-i18n="delete_selected">Удалить выбранные</button>
-        </form>
-        {% else %}
-        <div class="note" data-i18n="no_accounts_yet">Пока нет добавленных аккаунтов.</div>
-        {% endif %}
+            {% else %}
+            <div class="note" data-i18n="backup_none">Копий пока нет. Создайте первую кнопкой ниже.</div>
+            {% endif %}
+            <div class="panel-foot">
+                <form method="post" action="/settings/backup/now">
+                    <button type="submit" class="btn btn-primary btn-block" data-i18n="backup_now">Сделать бэкап сейчас</button>
+                </form>
+            </div>
+        </div>
     </div>
 
+    <div class="panel panel-danger" data-stag>
+        <div class="panel-head">
+            <span class="panel-ico panel-ico-danger">{{ i.ico('upload', 16, 1.8) }}</span>
+            <div style="min-width:0">
+                <div class="panel-title" data-i18n="backup_import">Восстановление</div>
+                <div class="panel-desc" style="margin-bottom:0" data-i18n="backup_import_desc">загрузить архив и вернуть базу с сессиями</div>
+            </div>
+        </div>
+        <form method="post" action="/settings/backup/restore" enctype="multipart/form-data" class="form panel-body"
+              onsubmit="return confirm('Заменить текущую базу и сессии содержимым архива? Нынешние данные будут отложены в сторону, а вход придётся выполнить заново.')">
+            <p class="panel-note warn" data-i18n="backup_import_warn">Текущие база и сессии будут заменены. Прежние сохранятся рядом с пометкой .replaced.</p>
+            <div class="field">
+                <span class="field-label" data-i18n="backup_file">Архив бэкапа</span>
+                <label class="file-pick">
+                    <input type="file" name="archive" accept=".gz,.tar.gz,application/gzip" required>
+                    <span class="file-pick-btn" data-i18n="choose_file">Выбрать файл</span>
+                    <span class="file-pick-name" data-i18n="no_file">Файл не выбран</span>
+                </label>
+            </div>
+            <label class="field">
+                <span class="field-label" data-i18n="confirm_pw">Подтвердите паролем</span>
+                <input type="password" name="confirm_password" required>
+            </label>
+            <div class="panel-foot">
+                <button type="submit" class="btn btn-danger btn-block" data-i18n="backup_restore">Восстановить из архива</button>
+            </div>
+        </form>
+    </div>
 </div>
+{% endif %}
 
 {% if is_admin %}
-<div class="panel panel-wide" data-stag>
+{{ section('sec_users', 'Пользователи') }}
+<div class="cards cards-single">
+    <div class="panel" data-stag>
         <div class="panel-head">
             <span class="panel-ico">{{ i.ico('users', 16, 1.8) }}</span>
             <div style="min-width:0">
-                <div class="panel-title" data-i18n="sec_users">Пользователи</div>
+                <div class="panel-title" data-i18n="users_title">Кто имеет доступ</div>
                 <div class="panel-desc" style="margin-bottom:0" data-i18n="users_desc">у каждого свой вход и свои аккаунты · чужие им не видны</div>
             </div>
         </div>
-
-        <div class="user-list">
-            {% for p in people %}
-            <div class="user-row">
-                <span class="who-ava">{{ p.username | initials }}</span>
-                <div class="user-main">
-                    <div class="user-name">
-                        {{ p.username }}
-                        {% if p.is_admin %}<span class="tag tag-admin" data-i18n="role_admin">админ</span>{% endif %}
-                        {% if p.id == user.id %}<span class="tag" data-i18n="role_you">это вы</span>{% endif %}
-                        {% if p.totp_enabled %}<span class="tag tag-ok">2FA</span>{% endif %}
-                    </div>
-                    <div class="user-meta">
-                        <span>{{ p.accounts_count }} <span data-i18n="user_accounts">аккаунтов</span></span>
-                        <span>·</span>
-                        {% if p.last_login_at %}
-                        <span><span data-i18n="user_lastlogin">вход</span> <span class="time-ago" data-time="{{ p.last_login_at }}">{{ p.last_login_at }}</span></span>
-                        {% else %}
-                        <span data-i18n="user_never">ни разу не входил</span>
-                        {% endif %}
-                    </div>
-                </div>
-                <details class="user-actions">
-                    <summary class="chip-btn" data-i18n="manage">Управление</summary>
+        <div class="panel-body">
+            <div class="user-list">
+                {% for p in people %}
+                <details class="user-row">
+                    <summary class="user-summary">
+                        <span class="who-ava">{{ p.username | initials }}</span>
+                        <span class="user-main">
+                            <span class="user-name">
+                                <span>{{ p.username }}</span>
+                                {% if p.is_admin %}<span class="tag tag-admin" data-i18n="role_admin">админ</span>{% endif %}
+                                {% if p.id == user.id %}<span class="tag" data-i18n="role_you">это вы</span>{% endif %}
+                                {% if p.totp_enabled %}<span class="tag tag-ok">2FA</span>{% endif %}
+                            </span>
+                            <span class="user-meta">
+                                <span>{{ p.accounts_count }} <span data-i18n="user_accounts">аккаунтов</span></span>
+                                <span class="dot-sep">·</span>
+                                {% if p.last_login_at %}
+                                <span><span data-i18n="user_lastlogin">вход</span> <span class="time-ago" data-time="{{ p.last_login_at }}">{{ p.last_login_at }}</span></span>
+                                {% else %}
+                                <span data-i18n="user_never">ни разу не входил</span>
+                                {% endif %}
+                            </span>
+                        </span>
+                        <span class="chip-btn user-toggle"><span data-i18n="manage">Управление</span>{{ i.ico('chevron', 13, 2) }}</span>
+                    </summary>
                     <div class="user-panel">
-                        <form method="post" action="/settings/users/{{ p.id }}/password" class="form">
-                            <label class="field">
-                                <span class="field-label" data-i18n="user_new_pw">Новый пароль</span>
-                                <input type="password" name="new_password" minlength="8" required>
-                                <span class="hint" data-i18n="user_new_pw_hint">Пользователь будет разлогинен на всех устройствах.</span>
-                            </label>
-                            <button type="submit" class="btn btn-ghost btn-block" data-i18n="user_set_pw">Задать пароль</button>
-                        </form>
+                            <form method="post" action="/settings/users/{{ p.id }}/password" class="form user-form">
+                                <label class="field">
+                                    <span class="field-label" data-i18n="user_new_pw">Новый пароль</span>
+                                    <input type="password" name="new_password" minlength="8" required>
+                                    <span class="hint" data-i18n="user_new_pw_hint">Пользователь будет разлогинен на всех устройствах.</span>
+                                </label>
+                                <button type="submit" class="btn btn-ghost btn-block" data-i18n="user_set_pw">Задать пароль</button>
+                            </form>
 
-                        <form method="post" action="/settings/users/{{ p.id }}/admin" style="margin-top:12px">
-                            <input type="hidden" name="make_admin" value="{{ 'off' if p.is_admin else 'on' }}">
-                            <button type="submit" class="btn btn-ghost btn-block">
-                                {% if p.is_admin %}<span data-i18n="user_revoke_admin">Снять права админа</span>
-                                {% else %}<span data-i18n="user_grant_admin">Сделать админом</span>{% endif %}
-                            </button>
-                        </form>
+                            <form method="post" action="/settings/users/{{ p.id }}/admin" class="user-form">
+                                <span class="field-label" data-i18n="user_rights">Права</span>
+                                <input type="hidden" name="make_admin" value="{{ 'off' if p.is_admin else 'on' }}">
+                                <button type="submit" class="btn btn-ghost btn-block">
+                                    {% if p.is_admin %}<span data-i18n="user_revoke_admin">Снять права админа</span>
+                                    {% else %}<span data-i18n="user_grant_admin">Сделать админом</span>{% endif %}
+                                </button>
+                            </form>
 
-                        {% if p.id != user.id %}
-                        <form method="post" action="/settings/users/{{ p.id }}/delete" class="form" style="margin-top:12px"
-                              onsubmit="return confirm('Удалить «{{ p.username }}»? Все его Telegram-аккаунты будут отключены и удалены.')">
-                            <label class="field">
-                                <span class="field-label" data-i18n="confirm_pw">Подтвердите паролем</span>
-                                <input type="password" name="confirm_password" required>
-                            </label>
-                            <button type="submit" class="btn btn-danger btn-block" data-i18n="user_delete">Удалить пользователя</button>
-                        </form>
-                        {% endif %}
+                            {% if p.id != user.id %}
+                            <form method="post" action="/settings/users/{{ p.id }}/delete" class="form user-form"
+                                  onsubmit="return confirm('Удалить «{{ p.username }}»? Все его Telegram-аккаунты будут отключены и удалены.')">
+                                <label class="field">
+                                    <span class="field-label" data-i18n="confirm_pw">Подтвердите паролем</span>
+                                    <input type="password" name="confirm_password" required>
+                                </label>
+                                <button type="submit" class="btn btn-danger btn-block" data-i18n="user_delete">Удалить пользователя</button>
+                            </form>
+                            {% endif %}
                     </div>
                 </details>
+                {% endfor %}
             </div>
-            {% endfor %}
+
+            <div class="divider"></div>
+
+            <div class="panel-head" style="margin-bottom:12px">
+                <span class="panel-ico">{{ i.ico('user-plus', 16, 1.8) }}</span>
+                <div class="panel-title" data-i18n="user_add">Добавить пользователя</div>
+            </div>
+            <form method="post" action="/settings/users/create" class="create-form">
+                <label class="field">
+                    <span class="field-label" data-i18n="k_login">Логин</span>
+                    <input type="text" name="username" minlength="3" pattern="[A-Za-z0-9._\-]+" required
+                           data-i18n-placeholder="user_login_ph" placeholder="например, andrey">
+                    <span class="hint" data-i18n="user_login_hint">Латиница, цифры, точка, дефис и подчёркивание.</span>
+                </label>
+                <label class="field">
+                    <span class="field-label" data-i18n="new_pw">Пароль</span>
+                    <input type="password" name="password" minlength="8" autocomplete="new-password" required>
+                </label>
+                <label class="field">
+                    <span class="field-label" data-i18n="repeat_pw">Подтвердите</span>
+                    <input type="password" name="confirm_password" minlength="8" autocomplete="new-password" required>
+                </label>
+                <label class="check-row create-wide">
+                    <input type="checkbox" name="is_admin">
+                    <span>
+                        <span class="row-title" data-i18n="user_make_admin">Сделать администратором</span>
+                        <span class="row-hint" data-i18n="user_make_admin_hint">Сможет управлять пользователями и бэкапами</span>
+                    </span>
+                </label>
+                <button type="submit" class="btn btn-primary create-submit" data-i18n="user_create">Создать</button>
+            </form>
         </div>
-
-        <div class="divider"></div>
-
-        <div class="row-title" style="font-family:var(--font-display);margin-bottom:12px" data-i18n="user_add">Добавить пользователя</div>
-        <form method="post" action="/settings/users/create" class="form user-create">
-            <label class="field">
-                <span class="field-label" data-i18n="k_login">Логин</span>
-                <input type="text" name="username" minlength="3" pattern="[A-Za-z0-9._\-]+" required>
-            </label>
-            <label class="field">
-                <span class="field-label" data-i18n="new_pw">Пароль</span>
-                <input type="password" name="password" minlength="8" required>
-            </label>
-            <label class="field">
-                <span class="field-label" data-i18n="repeat_pw">Подтвердите</span>
-                <input type="password" name="confirm_password" minlength="8" required>
-            </label>
-            <label class="acc-item" style="cursor:pointer">
-                <input type="checkbox" name="is_admin">
-                <span class="acc-item-name" style="font-weight:500" data-i18n="user_make_admin">Сделать администратором</span>
-            </label>
-            <button type="submit" class="btn btn-primary btn-block" data-i18n="user_create">Создать</button>
-        </form>
+    </div>
 </div>
 {% endif %}
 {% endblock %}

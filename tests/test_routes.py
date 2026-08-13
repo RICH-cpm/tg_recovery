@@ -63,6 +63,41 @@ def test_security_headers_present(client):
     assert "Content-Security-Policy" in r.headers
 
 
+def test_html_is_not_cached(client):
+    """Иначе браузер отдаст старую страницу со ссылками на старую статику."""
+    assert "no-store" in client.get("/login").headers["Cache-Control"]
+
+
+def test_static_links_carry_a_version(client):
+    """Nginx держит /static/ семь дней — без отпечатка обновление не доедет."""
+    import re
+    page = client.get("/login").text
+    css = re.search(r'href="(/static/css/style\.css[^"]*)"', page)
+    assert css and "?v=" in css.group(1)
+    for name in ("i18n", "theme", "time"):
+        m = re.search(rf'src="(/static/js/{name}\.js[^"]*)"', page)
+        assert m and "?v=" in m.group(1), name
+
+
+def test_static_version_changes_with_the_file(tmp_path, monkeypatch):
+    from app import templating
+    monkeypatch.setattr(templating.config, "STATIC_DIR", str(tmp_path))
+    f = tmp_path / "x.css"
+    f.write_text("a")
+    first = templating.static_url("x.css")
+    import os, time
+    time.sleep(0.01)
+    os.utime(f, None)
+    f.write_text("b")
+    assert templating.static_url("x.css") != first
+
+
+def test_static_url_survives_missing_file(monkeypatch, tmp_path):
+    from app import templating
+    monkeypatch.setattr(templating.config, "STATIC_DIR", str(tmp_path))
+    assert templating.static_url("nope.css") == "/static/nope.css"
+
+
 def test_healthz(client):
     assert client.get("/healthz").text == "ok"
 

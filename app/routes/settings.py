@@ -1,17 +1,22 @@
 """Настройки: учётная запись, 2FA, бэкапы, журнал."""
-import io, base64, asyncio, re
+import io, base64, asyncio, re, shutil, tempfile, logging
+from pathlib import Path
 from typing import List
 from urllib.parse import quote
 import qrcode
-from fastapi import APIRouter, Request, Form
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import APIRouter, Request, Form, File, UploadFile, HTTPException
+from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
 from ..templating import templates, nav_stats
-from ..auth import get_current_user, get_client_ip, set_session_cookie, bump_session_epoch
+from ..auth import (get_current_user, get_client_ip, set_session_cookie,
+                    bump_session_epoch, clear_session_cookie)
 from ..crypto import hash_password, verify_password, generate_totp_secret, get_totp_uri, verify_totp
-from ..database import fetch_one, fetch_all, execute, log_action, get_setting, set_setting
-from ..backup_service import perform_backup
+from ..database import fetch_one, fetch_all, execute, log_action, get_setting, set_setting, close_db, init_db_sync
+from ..backup_service import (perform_backup, list_backups, backup_path,
+                              inspect_backup, restore_backup)
 from ..telegram_manager import tg_manager
 from ..utils import utcnow_iso
+
+log = logging.getLogger("tg_recovery.settings")
 
 router = APIRouter()
 
@@ -19,6 +24,7 @@ MIN_USERNAME_LEN = 3
 MIN_PASSWORD_LEN = 8
 BACKUP_PERIODS = ("day", "week", "month")
 USERNAME_RE = re.compile(r"^[A-Za-z0-9._-]+$")
+MAX_UPLOAD_BYTES = 512 * 1024 * 1024
 
 
 def _login_redirect():
@@ -56,6 +62,7 @@ async def settings_page(request: Request, message: str = None, error: str = None
             "period": await get_setting("backup_period", "day"),
             "last_at": await get_setting("last_backup_at", ""),
             "last_size": await get_setting("last_backup_size", ""),
+            "files": await asyncio.to_thread(list_backups),
         }
         people = await fetch_all(
             """SELECT u.id, u.username, u.is_admin, u.totp_enabled, u.created_at, u.last_login_at,
@@ -151,6 +158,69 @@ async def backup_now(request: Request):
         return _back(error=f"Ошибка бэкапа: {str(e)[:80]}")
     await log_action(user["id"], "backup_manual", r["filename"], get_client_ip(request))
     return _back(message=f"Бэкап создан ({r['size']})")
+
+
+@router.get("/settings/backup/download/{name}")
+async def backup_download(request: Request, name: str):
+    user = await get_current_user(request)
+    if not user: return _login_redirect()
+    if not user.get("is_admin"): raise HTTPException(403, "Недостаточно прав")
+    path = backup_path(name)
+    if not path: raise HTTPException(404, "Бэкап не найден")
+    await log_action(user["id"], "backup_downloaded", name, get_client_ip(request))
+    return FileResponse(path, media_type="application/gzip", filename=name)
+
+
+@router.post("/settings/backup/restore")
+async def backup_restore(request: Request, archive: UploadFile = File(...), confirm_password: str = Form(...)):
+    user = await get_current_user(request)
+    if not user: return _login_redirect()
+    if not user.get("is_admin"): return _back(error="Недостаточно прав")
+    me = await fetch_one("SELECT password_hash FROM users WHERE id = ?", (user["id"],))
+    if not me or not verify_password(confirm_password, me["password_hash"]):
+        return _back(error="Неверный пароль")
+
+    tmp_dir = tempfile.mkdtemp(prefix="tgr-restore-")
+    tmp_file = Path(tmp_dir) / "upload.tar.gz"
+    written = 0
+    try:
+        with open(tmp_file, "wb") as out:
+            while chunk := await archive.read(1024 * 1024):
+                written += len(chunk)
+                if written > MAX_UPLOAD_BYTES:
+                    return _back(error="Файл больше 512 МБ")
+                out.write(chunk)
+        if not written:
+            return _back(error="Файл пустой")
+
+        try:
+            await asyncio.to_thread(inspect_backup, tmp_file)
+        except ValueError as e:
+            return _back(error=str(e))
+
+        # Порядок важен: пока живы клиенты и открыто соединение, подменять
+        # файлы под ними нельзя — получим смесь старой и новой базы.
+        await tg_manager.stop_all()
+        await close_db()
+        try:
+            await asyncio.to_thread(restore_backup, tmp_file)
+        except ValueError as e:
+            return _back(error=f"Восстановление не удалось: {e}")
+        finally:
+            init_db_sync()
+            await tg_manager.start_all()
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    # Пользователи теперь из восстановленной базы — текущая сессия к ней
+    # почти наверняка не относится, поэтому выходим и просим войти заново.
+    log.warning("database restored by %s", user["username"])
+    resp = RedirectResponse(
+        "/login?error=" + quote("База восстановлена. Войдите заново — логины и пароли теперь из бэкапа."),
+        status_code=302,
+    )
+    clear_session_cookie(resp)
+    return resp
 
 
 @router.post("/settings/accounts/delete")

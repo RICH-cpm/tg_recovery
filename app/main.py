@@ -100,6 +100,10 @@ async def security_headers(request: Request, call_next):
             resp.headers.setdefault(k, v)
         if config.IS_PRODUCTION:
             resp.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+    # Страницы не кэшируем: они персональные, а ещё несут ссылки на статику
+    # с отпечатком версии — из кэша пришли бы ссылки на старые файлы.
+    if resp.headers.get("content-type", "").startswith("text/html"):
+        resp.headers.setdefault("Cache-Control", "no-store, must-revalidate")
     _refresh_session(request, resp)
     return resp
 
